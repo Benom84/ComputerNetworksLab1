@@ -9,7 +9,7 @@ public class HtmlResponse {
 	final static String Description500 = "Internal Sever Error";
 	private String statusLine;
 	private String contentTypeLine;
-	private String entityBody;
+	private byte[] entityBody;
 
 
 	public void setStatus(String httpVersion, int responseCode) {
@@ -39,19 +39,20 @@ public class HtmlResponse {
 
 	}
 
-	public void setEntityBody(String body) {
-		entityBody = body;
+	public void setEntityBody(byte[] buffer) {
+		entityBody = buffer;
 	}
+	
 
 	public String getContentLengthLine() {
-		return "Content-Length: " + entityBody.length() + CRLF;
+		return "Content-Length: " + entityBody.length + CRLF;
 	}
 
 	public String getStatusLine() {
 		return statusLine;
 	}
 	
-	public String getEntityBody() {
+	public byte[] getEntityBody() {
 		return entityBody;
 	}
 	

@@ -14,6 +14,7 @@ public class WebServer {
 	private static String configurationSeperator = "=";
 	private static String rootKey = "root";
 	private static String portKey = "port";
+	
 	private static String defaultPageKey = "defaultPage";
 	private static String maxThreadsKey = "maxThreads";
 	private static String newLine = System.lineSeparator();
@@ -109,7 +110,7 @@ public class WebServer {
 				Thread thread = new Thread(request);
 
 				threadCount++;
-				System.out.println("Thread Count: " + threadCount);
+				//System.out.println("Thread Count: " + threadCount);
 
 				// Start the thread.
 				thread.start();					
@@ -227,7 +228,8 @@ public class WebServer {
 				try {
 
 					directoryCreated = rootDirectory.mkdirs();
-					configuration.replace(rootKey, defaultRoot);
+					configuration.remove(rootKey);
+					configuration.put(rootKey, defaultRoot);
 
 				} catch (Exception e) {
 
@@ -265,11 +267,13 @@ public class WebServer {
 				valueAsNumber = Integer.parseInt(valueFromConfiguration);
 				if (valueAsNumber < 2) {
 					result.append(valueFromConfiguration + " is an illegal value. Using default value." + newLine);
-					configuration.replace(keyToCheck, Integer.toString(defaultValue));
+					configuration.remove(keyToCheck);
+					configuration.put(keyToCheck, Integer.toString(defaultValue));
 				}
 			} catch (Exception e) {
 				result.append(valueFromConfiguration + " is not a valid number. Using default value." + newLine);
-				configuration.replace(keyToCheck, Integer.toString(defaultValue));
+				configuration.remove(keyToCheck);
+				configuration.put(keyToCheck, Integer.toString(defaultValue));
 			}
 		}
 

@@ -1,3 +1,4 @@
+import java.util.HashMap;
 
 public class HtmlRequest {
 
@@ -5,6 +6,8 @@ public class HtmlRequest {
 	protected String type;
 	protected String requestedFile;
 	protected String httpVersion;
+	protected String[] parsedRequest;
+	protected HashMap<String, String> requestHeaderFields;
 	protected boolean isLegalRequest = false;
 	
 	public HtmlRequest(String unparsedRequest) {
@@ -23,8 +26,22 @@ public class HtmlRequest {
 		type = header[0];
 		requestedFile = header[1];
 		httpVersion = header[2];
+		parsedRequest = requestLines;
+		
+		requestHeaderFields = createRequestHeaderFields(parsedRequest);
+		//System.out.println("The size of hashmap is: " + requestHeaderFields.size());
+		//System.out.println("The value of Connection is: " + requestHeaderFields.get("Connection"));
 		
 		isLegalRequest = true;
+	}
+	
+	private HashMap<String, String> createRequestHeaderFields(String[] list){
+		HashMap<String, String> result = new HashMap<String, String>();
+		for(int i = 1; i < list.length; i++){
+			String[] line = list[i].split(": ");
+			result.put(line[0], line[1]);
+		}
+		return result;
 	}
 	
 }
