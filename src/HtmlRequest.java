@@ -9,8 +9,11 @@ public class HtmlRequest {
 	protected String[] parsedRequest;
 	protected HashMap<String, String> requestHeaderFields;
 	protected boolean isLegalRequest = false;
+	protected String unparsedRequest;
 	
 	public HtmlRequest(String unparsedRequest) {
+		
+		this.unparsedRequest = unparsedRequest;
 		
 		// Divide the string to lines
 		String[] requestLines = unparsedRequest.split(newLine);

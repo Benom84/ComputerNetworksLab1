@@ -52,10 +52,10 @@ final class HttpRequest implements Runnable
 
 			String unparsedRequest = readRequest(socket);
 			//System.out.println("Unparsed: \n" + unparsedRequest);
-			
+
 			// If the request is empty than the socket was closed on the other side
 			if (unparsedRequest.isEmpty()) {
-				
+
 				try {
 					socket.close();
 				} catch (Exception e) {
@@ -70,24 +70,29 @@ final class HttpRequest implements Runnable
 			if (!htmlRequest.isLegalRequest) {
 				// The request format is illegal
 				responseToClient = respond400(htmlRequest);
-			} else if (htmlRequest.type == null || (!htmlRequest.type.equals("GET") && !htmlRequest.equals("POST"))) {
+			} else if (!legalRequestType(htmlRequest)) {
 				// The request method is unimplemented
 				responseToClient = respond501(htmlRequest);
 			} else {
-				boolean isFileLegal = false;
-				try {
-					isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
-				} catch (IOException e) {
-					System.out.println("Error checking the file: " + htmlRequest.requestedFile);
-					System.out.println(e.toString());
-				}
-				if (!isFileLegal) {
-					System.out.println("Sending 404 to client.");
-					responseToClient = respond404(htmlRequest);
+				if (!htmlRequest.type.equals("TRACE")) {
+					boolean isFileLegal = false;
+					try {
+						isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
+					} catch (IOException e) {
+						System.out.println("Error checking the file: " + htmlRequest.requestedFile);
+						System.out.println(e.toString());
+					}
+					if (!isFileLegal) {
+						System.out.println("Sending 404 to client.");
+						responseToClient = respond404(htmlRequest);
+					} else {
+						//System.out.println("Generating 200 Response.");
+						responseToClient = respond200(htmlRequest);
+					}	
 				} else {
-					//System.out.println("Generating 200 Response.");
 					responseToClient = respond200(htmlRequest);
 				}
+				
 			}
 
 			//System.out.println("Sending response to client.");
@@ -97,34 +102,31 @@ final class HttpRequest implements Runnable
 			try {
 				// Send the status line.
 				socketOutputStream.writeBytes(responseToClient.getStatusLine());
-				System.out.println("Thread " + threadNumber + ": statusLine");
 
 				// Send the content type line.
 				socketOutputStream.writeBytes(responseToClient.getContentType());
-				System.out.println("Thread " + threadNumber + ": contentType");
 
 				// Send content length.
 				socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
-				System.out.println("Thread " + threadNumber + ": contentLength");
 
 				// Send a blank line to indicate the end of the header lines.
 				socketOutputStream.writeBytes(CRLF);
-				System.out.println("Thread " + threadNumber + ": EmptyLine");
-				
+
 			} catch (Exception e) {
 				System.out.println("Writing the header caused an error" + e.toString());
 			}
 
 			// Send the content of the HTTP.
 
-			try {
-				socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
-				System.out.println("Thread " + threadNumber + ": entityBody");
-				socketOutputStream.flush();	
-			} catch (Exception e) {
-				System.out.println("Writing the answer caused an error" + e.toString());
-			}
-			
+			if (!htmlRequest.type.equals("HEAD")) {
+				try {
+					socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
+					System.out.println("Thread " + threadNumber + ": entityBody");
+					socketOutputStream.flush();	
+				} catch (Exception e) {
+					System.out.println("Writing the answer caused an error" + e.toString());
+				}
+			}			
 
 			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
 
@@ -135,19 +137,50 @@ final class HttpRequest implements Runnable
 			} catch (Exception e) {
 				System.out.println("closing the socket caused an error");
 			}
-			
+
 
 
 		}
 
 	}
 
+	private boolean legalRequestType(HtmlRequest htmlRequest) {
+
+		if (htmlRequest.type == null) {
+			return false;
+		}
+
+		if (!htmlRequest.type.equals("POST") && !htmlRequest.type.equals("GET") && 
+				!htmlRequest.type.equals("HEAD") && !htmlRequest.type.equals("TRACE")) {
+			return false;
+		}
+
+		return true;
+	}
+
 	private HtmlResponse respond200(HtmlRequest htmlRequest) throws IOException {
 		HtmlResponse response200 = new HtmlResponse();
+		byte[] bodyInBytes;
+		
+		if (htmlRequest.type.equals("TRACE")) {
+			bodyInBytes = htmlRequest.unparsedRequest.getBytes();
+		} else {
+			bodyInBytes = readFileForResponse(htmlRequest);
+		}
+
+		response200.setEntityBody(bodyInBytes);
+		response200.setStatus(htmlRequest.httpVersion, 200);
+		String contentType = getContentTypeFromFile(htmlRequest.requestedFile);
+		response200.setContentTypeLine(contentType);
+
+		return response200;
+	}
+	
+	private byte[] readFileForResponse(HtmlRequest htmlRequest) throws IOException {
 		String requestedFileFullPath;
 
 		if(htmlRequest.requestedFile.equals("/")){
-			requestedFileFullPath = rootDirectory.getCanonicalPath() + "\\index.html";
+			requestedFileFullPath = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
 		}else{
 			requestedFileFullPath = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
 		}
@@ -158,13 +191,8 @@ final class HttpRequest implements Runnable
 		BufferedInputStream bis = new BufferedInputStream(fis);
 		bis.read(buffer,0,buffer.length);
 		bis.close();
-
-		response200.setEntityBody(buffer);
-		response200.setStatus(htmlRequest.httpVersion, 200);
-		String contentType = getContentTypeFromFile(htmlRequest.requestedFile);
-		response200.setContentTypeLine(contentType);;
-
-		return response200;
+		
+		return buffer;
 	}
 
 	private String getContentTypeFromFile(String requestedFile) {
@@ -252,7 +280,14 @@ final class HttpRequest implements Runnable
 		if (!requestedFile.getAbsolutePath().startsWith(rootDirectory.getCanonicalPath())) {
 			return false;
 		}
+
+		// Checking if it is a directory
+		if (requestedFile.isDirectory()) {
+			return false;
+		}
+
 		System.out.println("The file is in the correct directory.");
+
 		// Check if the file exists
 		if (!requestedFile.exists()) {
 			return false;
@@ -274,11 +309,11 @@ final class HttpRequest implements Runnable
 				line = requestBufferedReader.readLine();
 
 			}
-	
+
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
 		}
-		
+
 		return requestStringBuilder.toString();
 	}
 
