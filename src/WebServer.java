@@ -73,7 +73,12 @@ public class WebServer {
 			System.out.println("Socket could not be created." + newLine + e.toString());
 			System.exit(1);
 		}
-
+/*
+		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
+		for (Thread thread : htmlResponseThreads) {
+			thread = new Thread(new HttpRequest())
+		}
+		
 		// Create a thread pool - problematic
 		/*
 		LinkedBlockingQueue<Thread> threadPool = new LinkedBlockingQueue<Thread>(maxThreads - 1);
@@ -110,7 +115,7 @@ public class WebServer {
 				Thread thread = new Thread(request);
 
 				threadCount++;
-				//System.out.println("Thread Count: " + threadCount);
+				System.out.println("Thread Count: " + threadCount);
 
 				// Start the thread.
 				thread.start();					

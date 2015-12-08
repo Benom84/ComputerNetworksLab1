@@ -63,6 +63,7 @@ final class HttpRequest implements Runnable
 				System.out.println(e.toString());
 			}
 			if (!isFileLegal) {
+				System.out.println("Sending 404 to client.");
 				responseToClient = respond404(htmlRequest);
 			} else {
 				//System.out.println("Generating 200 Response.");
@@ -87,10 +88,10 @@ final class HttpRequest implements Runnable
 		socketOutputStream.writeBytes(CRLF);
 
 		// Send the content of the HTTP.
-        
-        socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
-        socketOutputStream.flush();
-        
+
+		socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
+		socketOutputStream.flush();
+
 		//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
 
 		// Close streams and socket.
@@ -100,43 +101,27 @@ final class HttpRequest implements Runnable
 		synchronized (threadCount) {
 			threadCount--;
 		}
-
+		
+		return;
 
 	}
 
 	private HtmlResponse respond200(HtmlRequest htmlRequest) throws IOException {
 		HtmlResponse response200 = new HtmlResponse();
 		String requestedFileFullPath;
-		
+
 		if(htmlRequest.requestedFile.equals("/")){
 			requestedFileFullPath = rootDirectory.getCanonicalPath() + "\\index.html";
 		}else{
 			requestedFileFullPath = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
 		}
-		
-		 File file = new File (requestedFileFullPath);
-         byte [] buffer  = new byte [(int)file.length()];
-         FileInputStream fis = new FileInputStream(file);
-         BufferedInputStream bis = new BufferedInputStream(fis);
-         bis.read(buffer,0,buffer.length);
-         bis.close();
-		//FileInputStream requestedFile = new FileInputStream(requestedFileFullPath);
-		
-		//byte[] buffer = new byte[requestedFile.available()];
-		//requestedFile.read(buffer);
-		
-		//StringBuilder bodySB = new StringBuilder();
-		
-		//Scanner scan = new Scanner(requestedFile);
-		//while(scan.hasNextLine()){
-			//bodySB.append(scan.nextLine() + System.lineSeparator());
-		//}
-		//scan.close();
-		
-		//List<String> fileLines = Files.readAllLines(requestedFile.toPath());
-		//for (String line : fileLines) {
-			//bodySB.append(line);
-		//}
+
+		File file = new File (requestedFileFullPath);
+		byte [] buffer  = new byte [(int)file.length()];
+		FileInputStream fis = new FileInputStream(file);
+		BufferedInputStream bis = new BufferedInputStream(fis);
+		bis.read(buffer,0,buffer.length);
+		bis.close();
 
 		response200.setEntityBody(buffer);
 		response200.setStatus(htmlRequest.httpVersion, 200);
@@ -146,17 +131,16 @@ final class HttpRequest implements Runnable
 		return response200;
 	}
 
-	
 	private String getContentTypeFromFile(String requestedFile) {
-		
+
 		String type = "application/octet-stream";
-		
+
 		// We will check if the file has a type like .bmp .jpg
 		String[] splitFileRequest = requestedFile.split(Pattern.quote("."));
-		
+
 		if (splitFileRequest.length < 2)
 			return "text/html";
-		
+
 		// If there is a type it is last
 		String typeInRequest = splitFileRequest[splitFileRequest.length - 1];
 		if (typeInRequest.equals("html") || typeInRequest.equals("htm"))
@@ -166,7 +150,7 @@ final class HttpRequest implements Runnable
 			type = "image";
 		else if (typeInRequest.equals("ico"))
 			type = "icon";
-		
+
 		return type;
 	}
 
@@ -177,7 +161,7 @@ final class HttpRequest implements Runnable
 		response404.setContentTypeLine("text/html");
 		String body404 = "<HTML><HEAD><TITLE>404 Not Found</TITLE></HEAD>" +
 				"<BODY><H1>File Not Found</H1><H2>But have a nice day</H2></BODY></HTML>";
-		//response404.setEntityBody(body404);
+		response404.setEntityBody(body404.getBytes());
 
 		return response404;
 	}
@@ -189,7 +173,7 @@ final class HttpRequest implements Runnable
 		response501.setContentTypeLine("text/html");
 		String body501 = "<HTML><HEAD><TITLE>Unknown Method</TITLE></HEAD>" +
 				"<BODY><H1>Unknown Method</H1><H2>But may you find knowledge in your path</H2></BODY></HTML>";
-		//response501.setEntityBody(body501);
+		response501.setEntityBody(body501.getBytes());
 
 		return response501;
 	}
@@ -201,7 +185,7 @@ final class HttpRequest implements Runnable
 		response500.setContentTypeLine("text/html");
 		String body500 = "<HTML><HEAD><TITLE>Internal Server Error</TITLE></HEAD>" +
 				"<BODY><H1>Internal Server Error</H1><H2>This is totally our fault, so relax.</H2></BODY></HTML>";
-		//response500.setEntityBody(body500);
+		response500.setEntityBody(body500.getBytes());
 
 		return response500;
 	}
@@ -213,7 +197,7 @@ final class HttpRequest implements Runnable
 		response400.setContentTypeLine("text/html");
 		String body400 = "<HTML><HEAD><TITLE>Bad Request</TITLE></HEAD>" +
 				"<BODY><H1>Bad Request</H1><H2>You are not bad, only the request, and requests can change.</H2></BODY></HTML>";
-		//response400.setEntityBody(body400);
+		response400.setEntityBody(body400.getBytes());
 
 		return response400;
 	}
@@ -225,19 +209,19 @@ final class HttpRequest implements Runnable
 			return true;
 		}
 		String requestedFileFullPath = rootDirectory.getCanonicalPath() + requestedFileStr;
-		//System.out.println("File requested: " + requestedFileFullPath);
+		System.out.println("File requested: " + requestedFileFullPath);
 		File requestedFile = new File(requestedFileFullPath);
 
 		// Checking that the requested file path is under the root directory
 		if (!requestedFile.getAbsolutePath().startsWith(rootDirectory.getCanonicalPath())) {
 			return false;
 		}
-		//System.out.println("The file is in the correct directory.");
+		System.out.println("The file is in the correct directory.");
 		// Check if the file exists
 		if (!requestedFile.exists()) {
 			return false;
 		}
-		//System.out.println("The file exists.");
+		System.out.println("The file exists.");
 		//System.out.println("Debbuging: The requested file is: " + requestedFileFullPath);
 		return true;
 	}
