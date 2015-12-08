@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.HashMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 
@@ -73,22 +74,16 @@ public class WebServer {
 			System.out.println("Socket could not be created." + newLine + e.toString());
 			System.exit(1);
 		}
-/*
-		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
-		for (Thread thread : htmlResponseThreads) {
-			thread = new Thread(new HttpRequest())
-		}
+		System.out.println("Created a server socket successfuly.");
+		LinkedBlockingQueue<Socket> socketRequestsQueue = new LinkedBlockingQueue<Socket>();
+		System.out.println("Create SocketRequestQueue successfuly.");
 		
-		// Create a thread pool - problematic
-		/*
-		LinkedBlockingQueue<Thread> threadPool = new LinkedBlockingQueue<Thread>(maxThreads - 1);
-		for (int i = 0; i < maxThreads - 1; i++) {
-			HttpRequest httpRequest = new HttpRequest(socket, root, defaultPage, threadPool);
-			threadPool.add(new Thread(httpRequest));
-			threadPool.remove()
+		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
+		for (int i = 0; i < htmlResponseThreads.length; i++) {
+			htmlResponseThreads[i] = new Thread(new HttpRequest(root, defaultPage, socketRequestsQueue, i));
+			htmlResponseThreads[i].start();
 		}
-		 */
-
+		System.out.println("Created an array of threads successfuly.");
 
 		while (true) {
 
@@ -103,23 +98,14 @@ public class WebServer {
 			}
 
 			// Construct an object to process the HTTP request message.
-			HttpRequest request = new HttpRequest(connection, root, defaultPage, threadCount);
-
-			// We wait for a thread to clear
-			while (threadCount == maxThreads - 1) {
-
+			try {
+				System.out.println("Put request in queue.");
+				socketRequestsQueue.put(connection);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				System.out.println("socketRequestsQueue threw: " + e.toString());
 			}
 
-			synchronized (threadCount) {
-				// Create a new thread to process the request.
-				Thread thread = new Thread(request);
-
-				threadCount++;
-				System.out.println("Thread Count: " + threadCount);
-
-				// Start the thread.
-				thread.start();					
-			}
 		}
 	}
 

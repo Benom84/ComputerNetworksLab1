@@ -7,6 +7,7 @@ public class HtmlResponse {
 	final static String Description501 = "Not Implemented";
 	final static String Description400 = "Bad Request";
 	final static String Description500 = "Internal Sever Error";
+	final static String DefaultHttpVersion = "HTTP/1.0";
 	private String statusLine;
 	private String contentTypeLine;
 	private byte[] entityBody;
@@ -30,6 +31,9 @@ public class HtmlResponse {
 					break;
 		}
 		
+		if (httpVersion == null) {
+			httpVersion = DefaultHttpVersion;
+		}
 		statusLine = httpVersion + " " + responseCode + " " + responseCodeStatus + CRLF;
 	}
 

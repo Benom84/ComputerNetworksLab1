@@ -3,6 +3,7 @@ import java.net.* ;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.* ;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
@@ -10,19 +11,20 @@ final class HttpRequest implements Runnable
 {
 	final static String CRLF = "\r\n";
 	final static String newLine = System.lineSeparator();
-	private Socket socket;
 	private File rootDirectory;
 	private File defaultPage;
-	private Integer threadCount;
+	private int threadNumber;
+	private LinkedBlockingQueue<Socket> socketRequestsQueue;
 
 
 	// Constructor
-	public HttpRequest(Socket socket, File rootDirectory, File defaultPage, Integer threadCount)
+	public HttpRequest(File rootDirectory, File defaultPage, LinkedBlockingQueue<Socket> socketRequestsQueue, int threadNumber)
 	{
-		this.socket = socket;
 		this.rootDirectory = rootDirectory;
 		this.defaultPage = defaultPage;
-		this.threadCount = threadCount;
+		this.socketRequestsQueue = socketRequestsQueue;
+		this.threadNumber = threadNumber;
+		System.out.println("Created thread number: " + threadNumber);
 	}
 
 	// Implement the run() method of the Runnable interface.
@@ -34,75 +36,109 @@ final class HttpRequest implements Runnable
 		}
 		catch (Exception e)
 		{
-			System.out.println(e);
+			System.out.println("Request generating error: " + e);
 		}
 	}
 
 	private void processRequest() throws Exception
 	{
-		DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
+		while (true) {
 
-		DataInputStream socketInputStream = new DataInputStream(socket.getInputStream());
-		String unparsedRequest = readRequest(socketInputStream);
-		System.out.println(unparsedRequest);
-		HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
-		HtmlResponse responseToClient;
+			System.out.println("Thread number " + threadNumber + " waiting for queue");
+			Socket socket = socketRequestsQueue.take();
+			System.out.println("Thread number " + threadNumber + " took request");
 
-		if (!htmlRequest.isLegalRequest) {
-			// The request format is illegal
-			responseToClient = respond400(htmlRequest);
-		} else if (!htmlRequest.type.equals("GET") && !htmlRequest.equals("POST")) {
-			// The request method is unimplemented
-			responseToClient = respond501(htmlRequest);
-		} else {
-			boolean isFileLegal = false;
-			try {
-				isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
-			} catch (IOException e) {
-				System.out.println("Error checking the file: " + htmlRequest.requestedFile);
-				System.out.println(e.toString());
+			DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
+
+			String unparsedRequest = readRequest(socket);
+			//System.out.println("Unparsed: \n" + unparsedRequest);
+			
+			// If the request is empty than the socket was closed on the other side
+			if (unparsedRequest.isEmpty()) {
+				
+				try {
+					socket.close();
+				} catch (Exception e) {
+					System.out.println("Error on trying to close socket on empty request: " + e.toString());
+				}
+				System.out.println("Skipping to next");
+				continue;
 			}
-			if (!isFileLegal) {
-				System.out.println("Sending 404 to client.");
-				responseToClient = respond404(htmlRequest);
+			HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
+			HtmlResponse responseToClient;
+
+			if (!htmlRequest.isLegalRequest) {
+				// The request format is illegal
+				responseToClient = respond400(htmlRequest);
+			} else if (htmlRequest.type == null || (!htmlRequest.type.equals("GET") && !htmlRequest.equals("POST"))) {
+				// The request method is unimplemented
+				responseToClient = respond501(htmlRequest);
 			} else {
-				//System.out.println("Generating 200 Response.");
-				responseToClient = respond200(htmlRequest);
+				boolean isFileLegal = false;
+				try {
+					isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
+				} catch (IOException e) {
+					System.out.println("Error checking the file: " + htmlRequest.requestedFile);
+					System.out.println(e.toString());
+				}
+				if (!isFileLegal) {
+					System.out.println("Sending 404 to client.");
+					responseToClient = respond404(htmlRequest);
+				} else {
+					//System.out.println("Generating 200 Response.");
+					responseToClient = respond200(htmlRequest);
+				}
 			}
+
+			//System.out.println("Sending response to client.");
+			//System.out.println("Header of sent response:");
+			System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
+					responseToClient.getContentLengthLine());
+			try {
+				// Send the status line.
+				socketOutputStream.writeBytes(responseToClient.getStatusLine());
+				System.out.println("Thread " + threadNumber + ": statusLine");
+
+				// Send the content type line.
+				socketOutputStream.writeBytes(responseToClient.getContentType());
+				System.out.println("Thread " + threadNumber + ": contentType");
+
+				// Send content length.
+				socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
+				System.out.println("Thread " + threadNumber + ": contentLength");
+
+				// Send a blank line to indicate the end of the header lines.
+				socketOutputStream.writeBytes(CRLF);
+				System.out.println("Thread " + threadNumber + ": EmptyLine");
+				
+			} catch (Exception e) {
+				System.out.println("Writing the header caused an error" + e.toString());
+			}
+
+			// Send the content of the HTTP.
+
+			try {
+				socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
+				System.out.println("Thread " + threadNumber + ": entityBody");
+				socketOutputStream.flush();	
+			} catch (Exception e) {
+				System.out.println("Writing the answer caused an error" + e.toString());
+			}
+			
+
+			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
+
+			// Close streams and socket.
+			try {
+				socketOutputStream.close();
+				socket.close();	
+			} catch (Exception e) {
+				System.out.println("closing the socket caused an error");
+			}
+			
+
+
 		}
-
-		//System.out.println("Sending response to client.");
-		//System.out.println("Header of sent response:");
-		System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
-				responseToClient.getContentLengthLine());
-		// Send the status line.
-		socketOutputStream.writeBytes(responseToClient.getStatusLine());
-
-		// Send the content type line.
-		socketOutputStream.writeBytes(responseToClient.getContentType());
-
-		// Send content length.
-		socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
-
-		// Send a blank line to indicate the end of the header lines.
-		socketOutputStream.writeBytes(CRLF);
-
-		// Send the content of the HTTP.
-
-		socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
-		socketOutputStream.flush();
-
-		//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
-
-		// Close streams and socket.
-		socketOutputStream.close();
-		socket.close();
-
-		synchronized (threadCount) {
-			threadCount--;
-		}
-		
-		return;
 
 	}
 
@@ -226,18 +262,23 @@ final class HttpRequest implements Runnable
 		return true;
 	}
 
-	private String readRequest(DataInputStream socketInputStream) throws IOException {
+	private String readRequest(Socket socket) throws IOException {
 
 		BufferedReader requestBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		StringBuilder requestStringBuilder = new StringBuilder();
-		String line = requestBufferedReader.readLine();
-		while (line != null && !line.isEmpty()) {
-			System.out.println(line);
-			requestStringBuilder.append(line + newLine);
-			line = requestBufferedReader.readLine();
+		try {
+			String line = requestBufferedReader.readLine();
+			while (line != null && !line.isEmpty()) {
+				//System.out.println(line);
+				requestStringBuilder.append(line + newLine);
+				line = requestBufferedReader.readLine();
 
+			}
+	
+		} catch (IOException e) {
+			System.out.println("An error occured while reading from the socket: " + e.toString());
 		}
-
+		
 		return requestStringBuilder.toString();
 	}
 
