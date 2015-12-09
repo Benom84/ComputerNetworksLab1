@@ -35,7 +35,7 @@
     <h2><a href="http://www.theuselessweb.com/">My favorite website</a></h2>
     <hr>
     <img id="img9" src="6.jpg" style="width:128px;height:128px;"/>
-    <form id="generalform">
+    <form id="generalform" method="post">
         <table>
             <tr>
                 <td><h3>Sender </h3></td>
@@ -52,6 +52,10 @@
             <tr>
                 <td><h3>Message </h3></td>
                 <td><textarea rows="4" cols="22" name="message" form="generalform"></textarea></td>
+            </tr>
+            <tr>
+                <td>Do you like checkboxes?</td>
+                <td><input type="checkbox" name="likeCheckbox">Yes</td>
             </tr>
             <tr>
                 <td></td>
