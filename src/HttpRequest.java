@@ -51,6 +51,7 @@ final class HttpRequest implements Runnable
 			DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
 
 			String unparsedRequest = readRequest(socket);
+			//System.out.println("*****Start Debbug: " + System.lineSeparator() + unparsedRequest + System.lineSeparator() + "******End.");
 			//System.out.println("Unparsed: \n" + unparsedRequest);
 
 			// If the request is empty than the socket was closed on the other side
@@ -98,7 +99,7 @@ final class HttpRequest implements Runnable
 			//System.out.println("Sending response to client.");
 			//System.out.println("Header of sent response:");
 			System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
-					responseToClient.getContentLengthLine());
+					responseToClient.getContentLengthLine() + responseToClient.getTransferEncoding());
 			try {
 				// Send the status line.
 				socketOutputStream.writeBytes(responseToClient.getStatusLine());
@@ -108,7 +109,9 @@ final class HttpRequest implements Runnable
 
 				// Send content length.
 				socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
-
+				
+				socketOutputStream.writeBytes(responseToClient.getTransferEncoding());
+				
 				// Send a blank line to indicate the end of the header lines.
 				socketOutputStream.writeBytes(CRLF);
 
@@ -119,15 +122,16 @@ final class HttpRequest implements Runnable
 			// Send the content of the HTTP.
 
 			if (!htmlRequest.type.equals("HEAD")) {
-				try {
-					socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
-					System.out.println("Thread " + threadNumber + ": entityBody");
-					socketOutputStream.flush();	
-				} catch (Exception e) {
-					System.out.println("Writing the answer caused an error" + e.toString());
-				}
+				//try {
+					//socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
+					//System.out.println("Thread " + threadNumber + ": entityBody");
+					//socketOutputStream.flush();	
+				//} catch (Exception e) {
+					//System.out.println("Writing the answer caused an error" + e.toString());
+				//}
+				sendEntityBodyToClient(socketOutputStream, responseToClient.getEntityBody(), true);
 			}			
-
+		
 			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
 
 			// Close streams and socket.
@@ -303,12 +307,13 @@ final class HttpRequest implements Runnable
 		StringBuilder requestStringBuilder = new StringBuilder();
 		try {
 			String line = requestBufferedReader.readLine();
-			while (line != null && !line.isEmpty()) {
-				//System.out.println(line);
+			//Other option : while(line != null && !line.isEmpty())
+			while (requestBufferedReader.ready()) {
+				System.out.println(line);
 				requestStringBuilder.append(line + newLine);
 				line = requestBufferedReader.readLine();
-
 			}
+			
 
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
@@ -316,6 +321,53 @@ final class HttpRequest implements Runnable
 
 		return requestStringBuilder.toString();
 	}
+	
+	private void sendEntityBodyToClient(DataOutputStream socketOutputStream, byte[] content, boolean isChunked) throws IOException{
+		
+		if(!isChunked){
+			try {
+				socketOutputStream.write(content,0,content.length);
+				socketOutputStream.flush();	
+			} catch (IOException e) {
+				System.out.println("Writing the answer caused an error" + e.toString());
+			}
+		}else{
+			int chunkSize = 1;
+			int totalLength = content.length;
+			int currentLength = 0;
+			int chunkNumber = 0;
+			
+			if((currentLength + chunkSize) > totalLength){
+				chunkSize = totalLength - currentLength;
+			}
+			while(currentLength < (totalLength-1)){
+				try {
+					
+					socketOutputStream.writeBytes(Integer.valueOf(String.valueOf(chunkNumber), 16) + CRLF);
+					socketOutputStream.write(content,currentLength,chunkSize);
+					socketOutputStream.writeBytes(CRLF);
+					
+					System.out.println("****Sent chunk: " + chunkNumber);
+				} catch (IOException e) {
+					System.out.println("Writing the answer caused an error in chunk number " + chunkNumber);
+					return;
+				}
+				if((currentLength + chunkSize) > totalLength){
+					chunkSize = totalLength - currentLength;
+				}
+				
+				currentLength += chunkSize;
+				chunkNumber++;
+			}
+			socketOutputStream.writeBytes(Integer.valueOf(String.valueOf(0), 16) + CRLF);
+			socketOutputStream.writeBytes(CRLF);
+			socketOutputStream.flush();	
+		}
+		
+		
+		
+	}
+	
 
 }
 

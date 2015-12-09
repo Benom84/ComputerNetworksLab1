@@ -63,5 +63,9 @@ public class HtmlResponse {
 	public String getContentType() {
 		return contentTypeLine;
 	}
+	
+	public String getTransferEncoding(){
+		return "transfer-encoding: chunked" + CRLF;
+	}
 
 }
