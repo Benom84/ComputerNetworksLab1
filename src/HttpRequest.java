@@ -80,7 +80,7 @@ final class HttpRequest implements Runnable
 						isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
 					} catch (IOException e) {
 						System.out.println("Error checking the file: " + htmlRequest.requestedFile);
-						System.out.println(e.toString());
+						responseToClient = respond500(htmlRequest);
 					}
 					if (!isFileLegal) {
 						System.out.println("Sending 404 to client.");
