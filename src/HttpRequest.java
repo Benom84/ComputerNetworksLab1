@@ -1,16 +1,14 @@
 import java.io.* ;
 import java.net.* ;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.* ;
-import java.util.concurrent.BlockingQueue;
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
 final class HttpRequest implements Runnable
 {
 	final static String CRLF = "\r\n";
-	final static String newLine = System.lineSeparator();
+	final static String NEWLINE = System.lineSeparator();
+	final static int CHUNCKED_BYTES = 1024;
 	private File rootDirectory;
 	private File defaultPage;
 	private int threadNumber;
@@ -67,6 +65,9 @@ final class HttpRequest implements Runnable
 				continue;
 			}
 			HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
+			// For debugging purposes
+			htmlRequest.isChunked = true;
+			
 			HtmlResponse responseToClient;
 
 			if (!htmlRequest.isLegalRequest) {
@@ -114,10 +115,13 @@ final class HttpRequest implements Runnable
 				socketOutputStream.writeBytes(responseToClient.getContentType());
 
 				// Send content length.
-				socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
+				if (!htmlRequest.isChunked) {
+					socketOutputStream.writeBytes(responseToClient.getContentLengthLine());	
+				}
+				
 				
 				if(htmlRequest.isChunked){
-				socketOutputStream.writeBytes(responseToClient.getTransferEncoding());
+					socketOutputStream.writeBytes(responseToClient.getTransferEncoding());
 				}
 				// Send a blank line to indicate the end of the header lines.
 				socketOutputStream.writeBytes(CRLF);
@@ -136,7 +140,7 @@ final class HttpRequest implements Runnable
 				//} catch (Exception e) {
 					//System.out.println("Writing the answer caused an error" + e.toString());
 				//}
-				sendEntityBodyToClient(socketOutputStream, responseToClient.getEntityBody(), false);
+				sendEntityBodyToClient(socketOutputStream, responseToClient, htmlRequest.isChunked);
 			}			
 		
 			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
@@ -317,7 +321,7 @@ final class HttpRequest implements Runnable
 			//Other option : while(line != null && !line.isEmpty())
 			while (requestBufferedReader.ready()) {
 				System.out.println(line);
-				requestStringBuilder.append(line + newLine);
+				requestStringBuilder.append(line + NEWLINE);
 				line = requestBufferedReader.readLine();
 			}
 			
@@ -329,7 +333,10 @@ final class HttpRequest implements Runnable
 		return requestStringBuilder.toString();
 	}
 	
-	private void sendEntityBodyToClient(DataOutputStream socketOutputStream, byte[] content, boolean isChunked) throws IOException{
+	private void sendEntityBodyToClient(DataOutputStream socketOutputStream, HtmlResponse htmlResponse, boolean isChunked) throws IOException{
+		
+		
+		byte[] content = htmlResponse.getEntityBody();
 		
 		if(!isChunked){
 			try {
@@ -338,20 +345,29 @@ final class HttpRequest implements Runnable
 			} catch (IOException e) {
 				System.out.println("Writing the answer caused an error" + e.toString());
 			}
-		}else{
-			FileReader reader = new FileReader(fullPathForFile);
-			BufferedReader bufferedReader = new BufferedReader(reader);
-			char[] charBuffer = new char[1024];
-			//The number of characters that was read
-			int len;
-			
-			while ((len=bufferedReader.read(charBuffer)) != -1) {
-				socketOutputStream.writeBytes(((Integer.toHexString(len) + CRLF)));
-				socketOutputStream.write(String.valueOf(charBuffer).getBytes(), 0, len);
+		} else {
+
+			int currentIndexStart = 0;
+			int currentIndexEnd = Math.min(CHUNCKED_BYTES - 1, content.length - 1);
+			int lengthOfBytesSent = currentIndexEnd - currentIndexStart + 1;
+			System.out.println("Going To Write Chuncked");
+			while (currentIndexStart < content.length - 1) {
+				//System.out.println("Writing bytes from: " + currentIndexStart + " To: " + currentIndexEnd + " Length is: " + lengthOfBytesSent);
+				//System.out.println("Content is: " + Arrays.toString(new String(content).toCharArray()));
+				socketOutputStream.writeBytes(Integer.toHexString(lengthOfBytesSent) + CRLF);
+				socketOutputStream.write(content, currentIndexStart, lengthOfBytesSent);
 				socketOutputStream.writeBytes(CRLF);
+				socketOutputStream.flush();
+				
+				currentIndexStart = currentIndexEnd + 1;
+				currentIndexEnd = Math.min(currentIndexStart + CHUNCKED_BYTES - 1, content.length - 1);
+				lengthOfBytesSent = currentIndexEnd - currentIndexStart + 1;
 			}
+			
 			socketOutputStream.writeBytes("0"+CRLF);
 			socketOutputStream.writeBytes(CRLF);
+			socketOutputStream.flush();
+			System.out.println("Finished To Write Chuncked");
 		}
 		
 		
