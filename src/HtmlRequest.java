@@ -1,3 +1,8 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.Socket;
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.regex.Pattern;
 
@@ -10,6 +15,7 @@ public class HtmlRequest {
 	protected String[] parsedRequest;
 	protected HashMap<String, String> requestHeaderFields;
 	protected HashMap<String, String> parametersInRequest;
+	public HashMap<String, String> parametersInRequestBody;
 	protected boolean isLegalRequest = false;
 	protected String unparsedRequest;
 	public boolean isChunked = false;
@@ -34,21 +40,32 @@ public class HtmlRequest {
 		httpVersion = header[2];
 		parsedRequest = requestLines;
 		
-		if(requestedFile.contains("?")){
-			String[] parameters = requestedFile.split(Pattern.quote("?"));
-			parametersInRequest = getParameters(parameters[1]);
-			//System.out.println("******Debbug parameters: " + System.lineSeparator());
-			//System.out.println(parametersInRequest.toString());
-			//System.out.println("******End debbuging parmeters.");
-			
+		requestHeaderFields = createRequestHeaderFields(parsedRequest);
+		
+		if (type.equals("Post") || type.equals("GET") ||type.equals("HEAD")) {
+			if(requestedFile.contains("?")){
+				String[] parameters = requestedFile.split(Pattern.quote("?"));
+				parametersInRequest = getParametersFromURL(parameters[1]);
+				//System.out.println("******Debbug parameters: " + System.lineSeparator());
+				//System.out.println(parametersInRequest.toString());
+				//System.out.println("******End debbuging parmeters.");
+				
+			}
 		}
+		//System.out.println("!!!!!! I got HERE!!!");
+		
+		
+		
+		
+		
+		
 		/*
 		if((parametersInRequest.get("CHUNKED") != null) && (parametersInRequest.get("CHUNKED").toLowerCase().equals("yes"))){
 			
 					isChunked = true;	
 		}
 		*/
-		requestHeaderFields = createRequestHeaderFields(parsedRequest);
+		
 		//System.out.println("The size of hashmap is: " + requestHeaderFields.size());
 		//System.out.println("The value of Connection is: " + requestHeaderFields.get("Connection"));
 		
@@ -64,7 +81,7 @@ public class HtmlRequest {
 		return result;
 	}
 	
-	private HashMap<String, String> getParameters(String parameters){
+	private HashMap<String, String> getParametersFromURL(String parameters){
 		if(!parameters.contains("=")){
 			System.out.println("Error: No Parameters to extract.");
 			return null;
@@ -76,6 +93,73 @@ public class HtmlRequest {
 				result.put(parmeter[0], parmeter[1]);
 			}
 			return result;
+		}
+	}
+	public void getParametersFromBody(BufferedReader requestReader) throws IOException{
+		
+		//String lengthStr;
+		String postBody;
+		int bodyLength;
+		char[] byteLoad;
+
+		String lengthStr = requestHeaderFields.get("CONTENT-LENGTH");
+
+		if (lengthStr != null) {
+
+			try {
+				bodyLength = Integer.parseInt(lengthStr);
+			} catch (NumberFormatException e) {
+				throw new IOException();
+			}
+			System.out.println("*****Debbug: body of request length: " + bodyLength);
+			// body empty
+			if (bodyLength == 0) {
+				return;
+			}
+
+			byteLoad = new char[bodyLength];
+			// SUNNY: not sure if the exction
+			try {
+				requestReader.read(byteLoad, 0, bodyLength);
+			} catch (IOException e) {
+				throw e;
+			}
+
+			postBody = new String(byteLoad);
+			
+			String[] split = postBody.split("&");
+			for (String pair : split) {
+				// split name and value.
+				String splitPair[] = pair.split("=");
+
+				String key;
+				String value;
+				int index = 1;
+				// if the pair doesn't contain a value ignore.
+				if (splitPair.length == 1) {
+					continue;
+
+				} else {
+
+					try {
+
+						key = URLDecoder.decode(splitPair[0], "UTF-8").trim();
+						value = URLDecoder.decode(splitPair[1], "UTF-8").trim();
+
+						// if the map doesn't contain this key.
+						if (!parametersInRequestBody.containsKey(key)) {
+							parametersInRequestBody.put(key, value);
+							System.out.println("Index: " + index + " key: " + key + " value: " + value);
+							index++;
+						}
+
+					} catch (UnsupportedEncodingException e) {
+						// couldn't parse the parameter.
+						continue;
+					}
+
+				}
+			}
 		}
 	}
 	

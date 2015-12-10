@@ -35,6 +35,7 @@ public class HtmlResponse {
 			httpVersion = DefaultHttpVersion;
 		}
 		statusLine = httpVersion + " " + responseCode + " " + responseCodeStatus + CRLF;
+		
 	}
 
 	public void setContentTypeLine(String contentType) {

@@ -1,6 +1,8 @@
 import java.io.* ;
 import java.net.* ;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
@@ -49,12 +51,12 @@ final class HttpRequest implements Runnable
 
 			DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
 
-			String unparsedRequest = readRequest(socket);
+			HtmlRequest htmlRequest = readRequest(socket);
 			//System.out.println("*****Start Debbug: " + System.lineSeparator() + unparsedRequest + System.lineSeparator() + "******End.");
 			//System.out.println("Unparsed: \n" + unparsedRequest);
 
 			// If the request is empty than the socket was closed on the other side
-			if (unparsedRequest.isEmpty()) {
+			if (htmlRequest.equals(null)) {
 
 				try {
 					socket.close();
@@ -64,9 +66,9 @@ final class HttpRequest implements Runnable
 				System.out.println("Skipping to next");
 				continue;
 			}
-			HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
+			//HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
 			// For debugging purposes
-			htmlRequest.isChunked = true;
+			//htmlRequest.isChunked = true;
 			
 			HtmlResponse responseToClient;
 
@@ -179,7 +181,16 @@ final class HttpRequest implements Runnable
 		
 		if (htmlRequest.type.equals("TRACE")) {
 			bodyInBytes = htmlRequest.unparsedRequest.getBytes();
-		} else {
+		}else if(htmlRequest.type.equals("POST")){
+			if (htmlRequest.requestedFile.equals("/params_info.html")) {
+				System.out.println("YESSSSSSS");
+				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
+			}
+			else{
+				bodyInBytes = null;
+			}
+		}
+		else {
 			bodyInBytes = readFileForResponse(htmlRequest);
 		}
 
@@ -312,7 +323,7 @@ final class HttpRequest implements Runnable
 		return true;
 	}
 
-	private String readRequest(Socket socket) throws IOException {
+	private HtmlRequest readRequest(Socket socket) throws IOException {
 
 		BufferedReader requestBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		StringBuilder requestStringBuilder = new StringBuilder();
@@ -329,8 +340,16 @@ final class HttpRequest implements Runnable
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
 		}
-
-		return requestStringBuilder.toString();
+		if(requestStringBuilder.toString().isEmpty()){
+			return null;
+		}
+		String unparsedRequest = requestStringBuilder.toString();
+		HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
+		System.out.println("****Debbug: type of request is: " + htmlRequest.type);
+		if (htmlRequest.type.equals("Post")) {
+			htmlRequest.getParametersFromBody(requestBufferedReader);
+		}
+		return htmlRequest;
 	}
 	
 	private void sendEntityBodyToClient(DataOutputStream socketOutputStream, HtmlResponse htmlResponse, boolean isChunked) throws IOException{
@@ -372,6 +391,39 @@ final class HttpRequest implements Runnable
 		
 		
 		
+	}
+	
+	private byte[] makeTable(HashMap<String, String> map) {
+		StringBuilder table = new StringBuilder();
+		// if there are no parameters
+		if (map.isEmpty()) {
+			table.append("<!DOCTYPE html>" + "<HTML>" + "<HEAD><TITLE>"
+					+ "table" + "</TITLE></HEAD>" + "<BODY>" + "<H1>"
+					+ " no parameters" + "</H1><br><br><br>" + "</BODY></HTML>");
+		} else {
+			table.append("<!DOCTYPE html>" + "<HTML>"
+					+ "<HEAD lang='en'><TITLE>" + "table" + "</TITLE></HEAD>"
+					+ "<BODY>" + "<H1>"
+					+ " table with parameters the client sent"
+					+ "</H1><br><br><br>"
+					+ "<table border ='2' style='width:30%'>");
+
+			Iterator<String> keySetIterator = map.keySet().iterator();
+
+			while (keySetIterator.hasNext()) {
+				String key = keySetIterator.next();
+				table.append("<tr>" + "<td>" + key + "</td>" + "<td>"
+						+ map.get(key) + "</td>" + "</tr>");
+
+			}
+
+			table.append("</table>" + "</BODY></HTML>");
+
+		}
+		
+		byte[] result = table.toString().getBytes();
+		return result;
+
 	}
 	
 
