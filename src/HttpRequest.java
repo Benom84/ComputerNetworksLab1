@@ -15,6 +15,7 @@ final class HttpRequest implements Runnable
 	private File defaultPage;
 	private int threadNumber;
 	private LinkedBlockingQueue<Socket> socketRequestsQueue;
+	public String fullPathForFile;
 
 
 	// Constructor
@@ -98,8 +99,13 @@ final class HttpRequest implements Runnable
 
 			//System.out.println("Sending response to client.");
 			//System.out.println("Header of sent response:");
-			System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
+			if(htmlRequest.isChunked){
+				System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
 					responseToClient.getContentLengthLine() + responseToClient.getTransferEncoding());
+			}else{
+				System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
+					responseToClient.getContentLengthLine());
+			}
 			try {
 				// Send the status line.
 				socketOutputStream.writeBytes(responseToClient.getStatusLine());
@@ -110,8 +116,9 @@ final class HttpRequest implements Runnable
 				// Send content length.
 				socketOutputStream.writeBytes(responseToClient.getContentLengthLine());
 				
+				if(htmlRequest.isChunked){
 				socketOutputStream.writeBytes(responseToClient.getTransferEncoding());
-				
+				}
 				// Send a blank line to indicate the end of the header lines.
 				socketOutputStream.writeBytes(CRLF);
 
@@ -129,7 +136,7 @@ final class HttpRequest implements Runnable
 				//} catch (Exception e) {
 					//System.out.println("Writing the answer caused an error" + e.toString());
 				//}
-				sendEntityBodyToClient(socketOutputStream, responseToClient.getEntityBody(), true);
+				sendEntityBodyToClient(socketOutputStream, responseToClient.getEntityBody(), false);
 			}			
 		
 			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
@@ -181,15 +188,15 @@ final class HttpRequest implements Runnable
 	}
 	
 	private byte[] readFileForResponse(HtmlRequest htmlRequest) throws IOException {
-		String requestedFileFullPath;
+		//String requestedFileFullPath;
 
 		if(htmlRequest.requestedFile.equals("/")){
-			requestedFileFullPath = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
+			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
 		}else{
-			requestedFileFullPath = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
+			fullPathForFile = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
 		}
 
-		File file = new File (requestedFileFullPath);
+		File file = new File (fullPathForFile);
 		byte [] buffer  = new byte [(int)file.length()];
 		FileInputStream fis = new FileInputStream(file);
 		BufferedInputStream bis = new BufferedInputStream(fis);
@@ -332,36 +339,19 @@ final class HttpRequest implements Runnable
 				System.out.println("Writing the answer caused an error" + e.toString());
 			}
 		}else{
-			int chunkSize = 1;
-			int totalLength = content.length;
-			int currentLength = 0;
-			int chunkNumber = 0;
+			FileReader reader = new FileReader(fullPathForFile);
+			BufferedReader bufferedReader = new BufferedReader(reader);
+			char[] charBuffer = new char[1024];
+			//The number of characters that was read
+			int len;
 			
-			if((currentLength + chunkSize) > totalLength){
-				chunkSize = totalLength - currentLength;
+			while ((len=bufferedReader.read(charBuffer)) != -1) {
+				socketOutputStream.writeBytes(((Integer.toHexString(len) + CRLF)));
+				socketOutputStream.write(String.valueOf(charBuffer).getBytes(), 0, len);
+				socketOutputStream.writeBytes(CRLF);
 			}
-			while(currentLength < (totalLength-1)){
-				try {
-					
-					socketOutputStream.writeBytes(Integer.valueOf(String.valueOf(chunkNumber), 16) + CRLF);
-					socketOutputStream.write(content,currentLength,chunkSize);
-					socketOutputStream.writeBytes(CRLF);
-					
-					System.out.println("****Sent chunk: " + chunkNumber);
-				} catch (IOException e) {
-					System.out.println("Writing the answer caused an error in chunk number " + chunkNumber);
-					return;
-				}
-				if((currentLength + chunkSize) > totalLength){
-					chunkSize = totalLength - currentLength;
-				}
-				
-				currentLength += chunkSize;
-				chunkNumber++;
-			}
-			socketOutputStream.writeBytes(Integer.valueOf(String.valueOf(0), 16) + CRLF);
+			socketOutputStream.writeBytes("0"+CRLF);
 			socketOutputStream.writeBytes(CRLF);
-			socketOutputStream.flush();	
 		}
 		
 		

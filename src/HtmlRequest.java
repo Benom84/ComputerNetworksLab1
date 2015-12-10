@@ -43,12 +43,9 @@ public class HtmlRequest {
 			
 		}
 		/*
-		if(!parametersInRequest.isEmpty()){
-			if(parametersInRequest.containsKey("chunked")){
-				if(parametersInRequest.get("chunked").equals("yes")){
+		if((parametersInRequest.get("CHUNKED") != null) && (parametersInRequest.get("CHUNKED").toLowerCase().equals("yes"))){
+			
 					isChunked = true;	
-				}
-			}
 		}
 		*/
 		requestHeaderFields = createRequestHeaderFields(parsedRequest);
