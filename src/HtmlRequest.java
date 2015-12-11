@@ -1,7 +1,6 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.regex.Pattern;
@@ -19,29 +18,29 @@ public class HtmlRequest {
 	protected boolean isLegalRequest = false;
 	protected String unparsedRequest;
 	public boolean isChunked = false;
-	
+
 	public HtmlRequest(String unparsedRequest) {
-		
+
 		this.unparsedRequest = unparsedRequest;
-		
+
 		// Divide the string to lines
 		String[] requestLines = unparsedRequest.split(newLine);
 		if (requestLines.length < 1) {
 			return;
 		}
-		
+
 		String[] header = requestLines[0].split(" ");
 		if (header.length < 3) {
 			return;
 		}
-		
+
 		type = header[0];
 		requestedFile = header[1];
 		httpVersion = header[2];
 		parsedRequest = requestLines;
-		
+
 		requestHeaderFields = createRequestHeaderFields(parsedRequest);
-		
+
 		if (type.equals("POST") || type.equals("GET") ||type.equals("HEAD")) {
 			if(requestedFile.contains("?")){
 				String[] parameters = requestedFile.split(Pattern.quote("?"));
@@ -49,38 +48,38 @@ public class HtmlRequest {
 				//System.out.println("******Debbug parameters: " + System.lineSeparator());
 				//System.out.println(parametersInRequest.toString());
 				//System.out.println("******End debbuging parmeters.");
-				
+
 			}
 		}
-		
-		
-		
-		
-		
-		
-		
+
+
+
+
+
+
+
 		/*
 		if((parametersInRequest.get("CHUNKED") != null) && (parametersInRequest.get("CHUNKED").toLowerCase().equals("yes"))){
-			
+
 					isChunked = true;	
 		}
-		*/
-		
+		 */
+
 		//System.out.println("The size of hashmap is: " + requestHeaderFields.size());
 		//System.out.println("The value of Connection is: " + requestHeaderFields.get("Connection"));
-		
+
 		isLegalRequest = true;
 	}
-	
+
 	private HashMap<String, String> createRequestHeaderFields(String[] list){
 		HashMap<String, String> result = new HashMap<String, String>();
 		for(int i = 1; i < list.length; i++){
 			String[] line = list[i].split(": ");
-			result.put(line[0], line[1]);
+			result.put(line[0].toUpperCase(), line[1]);
 		}
 		return result;
 	}
-	
+
 	private HashMap<String, String> getParametersFromURL(String parameters){
 		if(!parameters.contains("=")){
 			System.out.println("Error: No Parameters to extract.");
@@ -96,14 +95,14 @@ public class HtmlRequest {
 		}
 	}
 	public void getParametersFromBody(BufferedReader requestReader) throws IOException{
-		
+
 		//String lengthStr;
 		String postBody;
 		int bodyLength;
 		char[] byteLoad;
 		System.out.println("****Debug: Got Here!*****");
 		String lengthStr = requestHeaderFields.get("CONTENT-LENGTH");
-		System.out.println("****Debug: Got Here!*****");
+		System.out.println("****Debug: content length: " + lengthStr);
 		if (lengthStr != null) {
 
 			try {
@@ -116,17 +115,18 @@ public class HtmlRequest {
 			if (bodyLength == 0) {
 				return;
 			}
-
 			byteLoad = new char[bodyLength];
-			
+
 			try {
 				requestReader.read(byteLoad, 0, bodyLength);
 			} catch (IOException e) {
+				System.out.println("Error reading from buffered reader again");
 				throw e;
 			}
 
+			parametersInRequestBody = new HashMap<>();
 			postBody = new String(byteLoad);
-			
+			System.out.println("String body is: " + postBody);
 			String[] split = postBody.split("&");
 			for (String pair : split) {
 				// split name and value.
@@ -135,34 +135,34 @@ public class HtmlRequest {
 				String key;
 				String value;
 				int index = 1;
-				// if the pair doesn't contain a value ignore.
-				if (splitPair.length == 1) {
-					continue;
 
-				} else {
+				try {
 
-					try {
-
-						key = URLDecoder.decode(splitPair[0], "UTF-8").trim();
-						value = URLDecoder.decode(splitPair[1], "UTF-8").trim();
-
-						// if the map doesn't contain this key.
-						if (!parametersInRequestBody.containsKey(key)) {
-							parametersInRequestBody.put(key, value);
-							System.out.println("Index: " + index + " key: " + key + " value: " + value);
-							index++;
-						}
-
-					} catch (UnsupportedEncodingException e) {
-						// couldn't parse the parameter.
-						continue;
+					key = URLDecoder.decode(splitPair[0], "UTF-8").trim();
+					if (splitPair.length == 1) {
+						value = "";
+					} else {
+						value = URLDecoder.decode(splitPair[1], "UTF-8").trim();	
 					}
 
+					System.out.println("Key is: " + key + " Value is: " + value);
+					// if the map doesn't contain this key.
+					if (!parametersInRequestBody.containsKey(key)) {
+						parametersInRequestBody.put(key, value);
+						System.out.println("Index: " + index + " key: " + key + " value: " + value);
+						index++;
+					}
+
+				} catch (UnsupportedEncodingException e) {
+					// couldn't parse the parameter.
+					continue;
 				}
+
+				//}
 			}
 		}
 	}
-	
-	
-	
+
+
+
 }

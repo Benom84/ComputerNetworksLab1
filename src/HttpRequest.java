@@ -79,7 +79,7 @@ final class HttpRequest implements Runnable
 				// The request method is unimplemented
 				responseToClient = respond501(htmlRequest);
 			} else {
-				if (!htmlRequest.type.equals("TRACE")) {
+				if (!htmlRequest.type.equals("TRACE") && !htmlRequest.type.equals("POST")) {
 					boolean isFileLegal = false;
 					try {
 						isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
@@ -330,11 +330,12 @@ final class HttpRequest implements Runnable
 		try {
 			String line = requestBufferedReader.readLine();
 			//Other option : while(line != null && !line.isEmpty())
-			while (requestBufferedReader.ready()) {
+			while (!line.isEmpty()) {
 				System.out.println(line);
 				requestStringBuilder.append(line + NEWLINE);
 				line = requestBufferedReader.readLine();
 			}
+			System.out.println("*****Finished Reading request without params");
 			
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
@@ -342,8 +343,8 @@ final class HttpRequest implements Runnable
 		if(requestStringBuilder.toString().isEmpty()){
 			return null;
 		}
-		String unparsedRequest = requestStringBuilder.toString();
-		HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
+		System.out.println("*****Request is not empty");
+		HtmlRequest htmlRequest = new HtmlRequest(requestStringBuilder.toString());
 		System.out.println("****Debbug: type of request is: " + htmlRequest.type);
 		if (htmlRequest.type.equals("POST")) {
 			htmlRequest.getParametersFromBody(requestBufferedReader);
