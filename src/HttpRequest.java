@@ -183,7 +183,7 @@ final class HttpRequest implements Runnable
 			bodyInBytes = htmlRequest.unparsedRequest.getBytes();
 		}else if(htmlRequest.type.equals("POST")){
 			if (htmlRequest.requestedFile.equals("/params_info.html")) {
-				System.out.println("YESSSSSSS");
+				System.out.println("*****Got Here!!******");
 				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
 			}
 			else{
@@ -324,7 +324,7 @@ final class HttpRequest implements Runnable
 	}
 
 	private HtmlRequest readRequest(Socket socket) throws IOException {
-
+		
 		BufferedReader requestBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		StringBuilder requestStringBuilder = new StringBuilder();
 		try {
@@ -336,7 +336,6 @@ final class HttpRequest implements Runnable
 				line = requestBufferedReader.readLine();
 			}
 			
-
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
 		}
@@ -346,7 +345,7 @@ final class HttpRequest implements Runnable
 		String unparsedRequest = requestStringBuilder.toString();
 		HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
 		System.out.println("****Debbug: type of request is: " + htmlRequest.type);
-		if (htmlRequest.type.equals("Post")) {
+		if (htmlRequest.type.equals("POST")) {
 			htmlRequest.getParametersFromBody(requestBufferedReader);
 		}
 		return htmlRequest;

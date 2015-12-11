@@ -42,7 +42,7 @@ public class HtmlRequest {
 		
 		requestHeaderFields = createRequestHeaderFields(parsedRequest);
 		
-		if (type.equals("Post") || type.equals("GET") ||type.equals("HEAD")) {
+		if (type.equals("POST") || type.equals("GET") ||type.equals("HEAD")) {
 			if(requestedFile.contains("?")){
 				String[] parameters = requestedFile.split(Pattern.quote("?"));
 				parametersInRequest = getParametersFromURL(parameters[1]);
@@ -52,7 +52,7 @@ public class HtmlRequest {
 				
 			}
 		}
-		//System.out.println("!!!!!! I got HERE!!!");
+		
 		
 		
 		
@@ -101,9 +101,9 @@ public class HtmlRequest {
 		String postBody;
 		int bodyLength;
 		char[] byteLoad;
-
+		System.out.println("****Debug: Got Here!*****");
 		String lengthStr = requestHeaderFields.get("CONTENT-LENGTH");
-
+		System.out.println("****Debug: Got Here!*****");
 		if (lengthStr != null) {
 
 			try {
@@ -118,7 +118,7 @@ public class HtmlRequest {
 			}
 
 			byteLoad = new char[bodyLength];
-			// SUNNY: not sure if the exction
+			
 			try {
 				requestReader.read(byteLoad, 0, bodyLength);
 			} catch (IOException e) {
