@@ -52,23 +52,13 @@ public class HtmlRequest {
 			}
 		}
 
-
-
-
-
-
-
-		/*
-		if((parametersInRequest.get("CHUNKED") != null) && (parametersInRequest.get("CHUNKED").toLowerCase().equals("yes"))){
-
-					isChunked = true;	
-		}
-		 */
-
 		//System.out.println("The size of hashmap is: " + requestHeaderFields.size());
 		//System.out.println("The value of Connection is: " + requestHeaderFields.get("Connection"));
-
-		isLegalRequest = true;
+		if(requestedFile.contains("/../")){
+			isLegalRequest = false;
+		}else{
+			isLegalRequest = true;
+		}
 	}
 
 	private HashMap<String, String> createRequestHeaderFields(String[] list){
@@ -100,9 +90,9 @@ public class HtmlRequest {
 		String postBody;
 		int bodyLength;
 		char[] byteLoad;
-		System.out.println("****Debug: Got Here!*****");
+		//System.out.println("****Debug: Got Here!*****");
 		String lengthStr = requestHeaderFields.get("CONTENT-LENGTH");
-		System.out.println("****Debug: content length: " + lengthStr);
+		//System.out.println("****Debug: content length: " + lengthStr);
 		if (lengthStr != null) {
 
 			try {
