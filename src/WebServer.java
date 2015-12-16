@@ -75,7 +75,7 @@ public class WebServer {
 			System.exit(1);
 		}
 		System.out.println("Created a server socket successfuly.");
-		LinkedBlockingQueue<Socket> socketRequestsQueue = new LinkedBlockingQueue<Socket>();
+		SocketQueue socketRequestsQueue = new SocketQueue();
 		System.out.println("Create SocketRequestQueue successfuly.");
 		
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];

@@ -14,12 +14,12 @@ final class HttpRequest implements Runnable
 	private File rootDirectory;
 	private File defaultPage;
 	private int threadNumber;
-	private LinkedBlockingQueue<Socket> socketRequestsQueue;
+	private SocketQueue socketRequestsQueue;
 	public String fullPathForFile;
 
 
 	// Constructor
-	public HttpRequest(File rootDirectory, File defaultPage, LinkedBlockingQueue<Socket> socketRequestsQueue, int threadNumber)
+	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber)
 	{
 		this.rootDirectory = rootDirectory;
 		this.defaultPage = defaultPage;
@@ -82,7 +82,7 @@ final class HttpRequest implements Runnable
 				if (!htmlRequest.type.equals("TRACE") && !htmlRequest.type.equals("POST")) {
 					boolean isFileLegal = false;
 					try {
-						isFileLegal = checkIfRequestedFileLegal(htmlRequest.requestedFile);
+						isFileLegal = checkIfRequestedFileLegal(htmlRequest);
 					} catch (IOException e) {
 						System.out.println("Error checking the file: " + htmlRequest.requestedFile);
 						responseToClient = respond500(htmlRequest);
@@ -196,7 +196,13 @@ final class HttpRequest implements Runnable
 
 		response200.setEntityBody(bodyInBytes);
 		response200.setStatus(htmlRequest.httpVersion, 200);
-		String contentType = getContentTypeFromFile(htmlRequest.requestedFile);
+		String contentType;
+		if (!htmlRequest.type.equals("POST")) {
+			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
+		} else {
+			contentType = getContentTypeFromFile("");
+		}
+			
 		response200.setContentTypeLine(contentType);
 
 		return response200;
@@ -229,7 +235,7 @@ final class HttpRequest implements Runnable
 		String[] splitFileRequest = requestedFile.split(Pattern.quote("."));
 
 		if (splitFileRequest.length < 2)
-			return "text/html";
+			return type;
 
 		// If there is a type it is last
 		String typeInRequest = splitFileRequest[splitFileRequest.length - 1];
@@ -292,11 +298,14 @@ final class HttpRequest implements Runnable
 		return response400;
 	}
 
-	private boolean checkIfRequestedFileLegal(String requestedFileStr) throws IOException {
+	private boolean checkIfRequestedFileLegal(HtmlRequest htmlRequest) throws IOException {
 
+		String requestedFileStr = htmlRequest.requestedFile;
+		
 		//Check if it is default
 		if (requestedFileStr.equals("/")) {
-			return true;
+			htmlRequest.requestedFile = "/" + defaultPage.toString();
+			requestedFileStr = htmlRequest.requestedFile;
 		}
 		String requestedFileFullPath = rootDirectory.getCanonicalPath() + requestedFileStr;
 		System.out.println("File requested: " + requestedFileFullPath);
@@ -346,7 +355,7 @@ final class HttpRequest implements Runnable
 		System.out.println("*****Request is not empty");
 		HtmlRequest htmlRequest = new HtmlRequest(requestStringBuilder.toString());
 		System.out.println("****Debbug: type of request is: " + htmlRequest.type);
-		if (htmlRequest.type.equals("POST")) {
+		if (htmlRequest.type.equals("POST") || htmlRequest.type.equals("TRACE")) {
 			htmlRequest.getParametersFromBody(requestBufferedReader);
 		}
 		return htmlRequest;

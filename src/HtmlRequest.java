@@ -113,9 +113,11 @@ public class HtmlRequest {
 				System.out.println("Error reading from buffered reader again");
 				throw e;
 			}
-
+			
 			parametersInRequestBody = new HashMap<>();
 			postBody = new String(byteLoad);
+			
+			unparsedRequest = unparsedRequest.concat(newLine + newLine + postBody);
 			System.out.println("String body is: " + postBody);
 			String[] split = postBody.split("&");
 			for (String pair : split) {
