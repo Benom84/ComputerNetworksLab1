@@ -1,8 +1,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.HashMap;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 
 public class WebServer {
@@ -28,10 +26,8 @@ public class WebServer {
 		int maxThreads;
 		File root;
 		File defaultPage;
-		Integer threadCount = 0;
 
 		System.out.println("Reading configuration file...");
-
 
 		try {
 			configuration = readServerConfiguration(configFile);
@@ -68,22 +64,22 @@ public class WebServer {
 
 		// Establish the listen socket.
 		ServerSocket socket = null;
+		
 		try {
 			socket = new ServerSocket(port);
 		} catch (IOException e) {
 			System.out.println("Socket could not be created." + newLine + e.toString());
 			System.exit(1);
 		}
-		System.out.println("Created a server socket successfuly.");
+		
 		SocketQueue socketRequestsQueue = new SocketQueue();
-		System.out.println("Create SocketRequestQueue successfuly.");
 		
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
+		
 		for (int i = 0; i < htmlResponseThreads.length; i++) {
 			htmlResponseThreads[i] = new Thread(new HttpRequest(root, defaultPage, socketRequestsQueue, i));
 			htmlResponseThreads[i].start();
 		}
-		System.out.println("Created an array of threads successfuly.");
 
 		while (true) {
 
@@ -99,13 +95,10 @@ public class WebServer {
 
 			// Construct an object to process the HTTP request message.
 			try {
-				System.out.println("Put request in queue.");
 				socketRequestsQueue.put(connection);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				System.out.println("socketRequestsQueue threw: " + e.toString());
 			}
-
 		}
 	}
 

@@ -45,15 +45,9 @@ public class HtmlRequest {
 			if(requestedFile.contains("?")){
 				String[] parameters = requestedFile.split(Pattern.quote("?"));
 				parametersInRequest = getParametersFromURL(parameters[1]);
-				//System.out.println("******Debbug parameters: " + System.lineSeparator());
-				//System.out.println(parametersInRequest.toString());
-				//System.out.println("******End debbuging parmeters.");
-
 			}
 		}
 
-		//System.out.println("The size of hashmap is: " + requestHeaderFields.size());
-		//System.out.println("The value of Connection is: " + requestHeaderFields.get("Connection"));
 		if(requestedFile.contains("/../")){
 			isLegalRequest = false;
 		}else{
@@ -86,13 +80,10 @@ public class HtmlRequest {
 	}
 	public void getParametersFromBody(BufferedReader requestReader) throws IOException{
 
-		//String lengthStr;
 		String postBody;
 		int bodyLength;
 		char[] byteLoad;
-		//System.out.println("****Debug: Got Here!*****");
 		String lengthStr = requestHeaderFields.get("CONTENT-LENGTH");
-		//System.out.println("****Debug: content length: " + lengthStr);
 		if (lengthStr != null) {
 
 			try {
@@ -100,7 +91,6 @@ public class HtmlRequest {
 			} catch (NumberFormatException e) {
 				throw new IOException();
 			}
-			System.out.println("*****Debbug: body of request length: " + bodyLength);
 			// body empty
 			if (bodyLength == 0) {
 				return;
@@ -118,7 +108,6 @@ public class HtmlRequest {
 			postBody = new String(byteLoad);
 			
 			unparsedRequest = unparsedRequest.concat(newLine + newLine + postBody);
-			System.out.println("String body is: " + postBody);
 			String[] split = postBody.split("&");
 			for (String pair : split) {
 				// split name and value.
@@ -136,12 +125,11 @@ public class HtmlRequest {
 					} else {
 						value = URLDecoder.decode(splitPair[1], "UTF-8").trim();	
 					}
-
-					System.out.println("Key is: " + key + " Value is: " + value);
+					
 					// if the map doesn't contain this key.
 					if (!parametersInRequestBody.containsKey(key)) {
 						parametersInRequestBody.put(key, value);
-						System.out.println("Index: " + index + " key: " + key + " value: " + value);
+						//System.out.println("Index: " + index + " key: " + key + " value: " + value);
 						index++;
 					}
 
@@ -149,12 +137,7 @@ public class HtmlRequest {
 					// couldn't parse the parameter.
 					continue;
 				}
-
-				//}
 			}
 		}
 	}
-
-
-
 }

@@ -17,7 +17,6 @@ final class HttpRequest implements Runnable
 	private SocketQueue socketRequestsQueue;
 	public String fullPathForFile;
 
-
 	// Constructor
 	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber)
 	{
@@ -25,7 +24,6 @@ final class HttpRequest implements Runnable
 		this.defaultPage = defaultPage;
 		this.socketRequestsQueue = socketRequestsQueue;
 		this.threadNumber = threadNumber;
-		System.out.println("Created thread number: " + threadNumber);
 	}
 
 	// Implement the run() method of the Runnable interface.
@@ -45,16 +43,12 @@ final class HttpRequest implements Runnable
 	{
 		while (true) {
 
-			System.out.println("Thread number " + threadNumber + " waiting for queue");
 			Socket socket = socketRequestsQueue.take();
-			System.out.println("Thread number " + threadNumber + " took request");
-
+			
 			DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
 
 			HtmlRequest htmlRequest = readRequest(socket);
-			//System.out.println("*****Start Debbug: " + System.lineSeparator() + unparsedRequest + System.lineSeparator() + "******End.");
-			//System.out.println("Unparsed: \n" + unparsedRequest);
-
+			
 			// If the request is empty than the socket was closed on the other side
 			if (htmlRequest.equals(null)) {
 
@@ -63,12 +57,8 @@ final class HttpRequest implements Runnable
 				} catch (Exception e) {
 					System.out.println("Error on trying to close socket on empty request: " + e.toString());
 				}
-				System.out.println("Skipping to next");
 				continue;
 			}
-			//HtmlRequest htmlRequest = new HtmlRequest(unparsedRequest);
-			// For debugging purposes
-			//htmlRequest.isChunked = true;
 			
 			HtmlResponse responseToClient;
 
@@ -88,10 +78,8 @@ final class HttpRequest implements Runnable
 						responseToClient = respond500(htmlRequest);
 					}
 					if (!isFileLegal) {
-						System.out.println("Sending 404 to client.");
 						responseToClient = respond404(htmlRequest);
 					} else {
-						//System.out.println("Generating 200 Response.");
 						responseToClient = respond200(htmlRequest);
 					}	
 				} else {
@@ -100,8 +88,6 @@ final class HttpRequest implements Runnable
 				
 			}
 
-			//System.out.println("Sending response to client.");
-			//System.out.println("Header of sent response:");
 			if(htmlRequest.isChunked){
 				System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
 					responseToClient.getContentLengthLine() + responseToClient.getTransferEncoding());
@@ -121,7 +107,6 @@ final class HttpRequest implements Runnable
 					socketOutputStream.writeBytes(responseToClient.getContentLengthLine());	
 				}
 				
-				
 				if(htmlRequest.isChunked){
 					socketOutputStream.writeBytes(responseToClient.getTransferEncoding());
 				}
@@ -133,20 +118,10 @@ final class HttpRequest implements Runnable
 			}
 
 			// Send the content of the HTTP.
-
 			if (!htmlRequest.type.equals("HEAD")) {
-				//try {
-					//socketOutputStream.write(responseToClient.getEntityBody(),0,responseToClient.getEntityBody().length);
-					//System.out.println("Thread " + threadNumber + ": entityBody");
-					//socketOutputStream.flush();	
-				//} catch (Exception e) {
-					//System.out.println("Writing the answer caused an error" + e.toString());
-				//}
 				sendEntityBodyToClient(socketOutputStream, responseToClient, htmlRequest.isChunked);
 			}			
 		
-			//socketOutputStream.writeBytes(responseToClient.getEntityBody()) ;
-
 			// Close streams and socket.
 			try {
 				socketOutputStream.close();
@@ -154,11 +129,7 @@ final class HttpRequest implements Runnable
 			} catch (Exception e) {
 				System.out.println("closing the socket caused an error");
 			}
-
-
-
 		}
-
 	}
 
 	private boolean legalRequestType(HtmlRequest htmlRequest) {
@@ -183,7 +154,6 @@ final class HttpRequest implements Runnable
 			bodyInBytes = htmlRequest.unparsedRequest.getBytes();
 		}else if(htmlRequest.type.equals("POST")){
 			if (htmlRequest.requestedFile.equals("/params_info.html")) {
-				System.out.println("*****Got Here!!******");
 				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
 			}
 			else{
@@ -197,6 +167,7 @@ final class HttpRequest implements Runnable
 		response200.setEntityBody(bodyInBytes);
 		response200.setStatus(htmlRequest.httpVersion, 200);
 		String contentType;
+		
 		if (!htmlRequest.type.equals("POST")) {
 			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
 		} else {
@@ -209,7 +180,6 @@ final class HttpRequest implements Runnable
 	}
 	
 	private byte[] readFileForResponse(HtmlRequest htmlRequest) throws IOException {
-		//String requestedFileFullPath;
 
 		if(htmlRequest.requestedFile.equals("/")){
 			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
@@ -308,7 +278,6 @@ final class HttpRequest implements Runnable
 			requestedFileStr = htmlRequest.requestedFile;
 		}
 		String requestedFileFullPath = rootDirectory.getCanonicalPath() + requestedFileStr;
-		System.out.println("File requested: " + requestedFileFullPath);
 		File requestedFile = new File(requestedFileFullPath);
 
 		// Checking that the requested file path is under the root directory
@@ -321,14 +290,11 @@ final class HttpRequest implements Runnable
 			return false;
 		}
 
-		System.out.println("The file is in the correct directory.");
-
 		// Check if the file exists
 		if (!requestedFile.exists()) {
 			return false;
 		}
-		System.out.println("The file exists.");
-		//System.out.println("Debbuging: The requested file is: " + requestedFileFullPath);
+	
 		return true;
 	}
 
@@ -338,13 +304,12 @@ final class HttpRequest implements Runnable
 		StringBuilder requestStringBuilder = new StringBuilder();
 		try {
 			String line = requestBufferedReader.readLine();
-			//Other option : while(line != null && !line.isEmpty())
+			
 			while (!line.isEmpty()) {
 				System.out.println(line);
 				requestStringBuilder.append(line + NEWLINE);
 				line = requestBufferedReader.readLine();
 			}
-			System.out.println("*****Finished Reading request without params");
 			
 		} catch (IOException e) {
 			System.out.println("An error occured while reading from the socket: " + e.toString());
@@ -352,9 +317,7 @@ final class HttpRequest implements Runnable
 		if(requestStringBuilder.toString().isEmpty()){
 			return null;
 		}
-		System.out.println("*****Request is not empty");
 		HtmlRequest htmlRequest = new HtmlRequest(requestStringBuilder.toString());
-		System.out.println("****Debbug: type of request is: " + htmlRequest.type);
 		if (htmlRequest.type.equals("POST") || htmlRequest.type.equals("TRACE")) {
 			htmlRequest.getParametersFromBody(requestBufferedReader);
 		}
@@ -362,7 +325,6 @@ final class HttpRequest implements Runnable
 	}
 	
 	private void sendEntityBodyToClient(DataOutputStream socketOutputStream, HtmlResponse htmlResponse, boolean isChunked) throws IOException{
-		
 		
 		byte[] content = htmlResponse.getEntityBody();
 		
@@ -378,10 +340,8 @@ final class HttpRequest implements Runnable
 			int currentIndexStart = 0;
 			int currentIndexEnd = Math.min(CHUNCKED_BYTES - 1, content.length - 1);
 			int lengthOfBytesSent = currentIndexEnd - currentIndexStart + 1;
-			System.out.println("Going To Write Chuncked");
+	
 			while (currentIndexStart < content.length - 1) {
-				//System.out.println("Writing bytes from: " + currentIndexStart + " To: " + currentIndexEnd + " Length is: " + lengthOfBytesSent);
-				//System.out.println("Content is: " + Arrays.toString(new String(content).toCharArray()));
 				socketOutputStream.writeBytes(Integer.toHexString(lengthOfBytesSent) + CRLF);
 				socketOutputStream.write(content, currentIndexStart, lengthOfBytesSent);
 				socketOutputStream.writeBytes(CRLF);
@@ -395,7 +355,6 @@ final class HttpRequest implements Runnable
 			socketOutputStream.writeBytes("0"+CRLF);
 			socketOutputStream.writeBytes(CRLF);
 			socketOutputStream.flush();
-			System.out.println("Finished To Write Chuncked");
 		}
 		
 		
@@ -427,15 +386,10 @@ final class HttpRequest implements Runnable
 			}
 
 			table.append("</table>" + "</BODY></HTML>");
-
 		}
 		
 		byte[] result = table.toString().getBytes();
 		return result;
 
 	}
-	
-
 }
-
-
