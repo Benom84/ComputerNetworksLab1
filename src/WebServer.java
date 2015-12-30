@@ -72,6 +72,7 @@ public class WebServer {
 			System.exit(1);
 		}
 		
+		System.out.println("Listening port : " + port);
 		SocketQueue socketRequestsQueue = new SocketQueue();
 		
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
@@ -81,6 +82,8 @@ public class WebServer {
 			htmlResponseThreads[i].start();
 		}
 
+		Crawler crawler = new Crawler();
+		crawler.search(serverDefaultPage);
 		while (true) {
 
 			// Listen for a TCP connection request.
@@ -88,6 +91,7 @@ public class WebServer {
 			try {
 
 				connection = socket.accept();
+				System.out.println("The HTTP request arriving to the server.");
 			} catch (IOException e) {
 				System.out.println("There was an error opening a socket on the server. Exiting!");
 				System.exit(1);

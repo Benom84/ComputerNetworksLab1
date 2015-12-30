@@ -3,6 +3,7 @@ import java.net.* ;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
@@ -16,6 +17,8 @@ final class HttpRequest implements Runnable
 	private int threadNumber;
 	private SocketQueue socketRequestsQueue;
 	public String fullPathForFile;
+	private String[] requestUrlAndBody;
+
 
 	// Constructor
 	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber)
@@ -96,6 +99,7 @@ final class HttpRequest implements Runnable
 					responseToClient.getContentLengthLine());
 			}
 			try {
+				System.out.println("The HTTP response header returning to the browser.");
 				// Send the status line.
 				socketOutputStream.writeBytes(responseToClient.getStatusLine());
 
@@ -121,7 +125,8 @@ final class HttpRequest implements Runnable
 			if (!htmlRequest.type.equals("HEAD")) {
 				sendEntityBodyToClient(socketOutputStream, responseToClient, htmlRequest.isChunked);
 			}			
-		
+
+
 			// Close streams and socket.
 			try {
 				socketOutputStream.close();
