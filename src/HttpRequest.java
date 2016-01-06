@@ -15,14 +15,14 @@ final class HttpRequest implements Runnable
 	private File rootDirectory;
 	private File defaultPage;
 	private int threadNumber;
-	private SocketQueue socketRequestsQueue;
+	private SynchronizedQueue<Socket> socketRequestsQueue;
 	public String fullPathForFile;
 	private String[] requestUrlAndBody;
 	private Crawler serverCrawler;
 
 
 	// Constructor
-	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber, Crawler crawler)
+	public HttpRequest(File rootDirectory, File defaultPage, SynchronizedQueue<Socket> socketRequestsQueue, int threadNumber, Crawler crawler)
 	{
 		this.rootDirectory = rootDirectory;
 		this.defaultPage = defaultPage;

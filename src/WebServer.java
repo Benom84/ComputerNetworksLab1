@@ -97,7 +97,7 @@ public class WebServer {
 		}
 		
 		System.out.println("Listening port : " + port);
-		SocketQueue socketRequestsQueue = new SocketQueue();
+		SynchronizedQueue socketRequestsQueue = new SynchronizedQueue();
 		
 		Crawler crawler = new Crawler(crawlerConfiguration);
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];

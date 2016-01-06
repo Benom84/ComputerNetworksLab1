@@ -17,33 +17,38 @@ public class Crawler {
 	private static List<String> imageExtensionsList;
 	private static List<String> videoExtensionsList;
 	private static List<String> documentExtensionsList;
-	private Set<String> pagesVisited = new HashSet<String>();
-	private List<String> pagesToVisit = new LinkedList<String>();
-	private Set<String> forbiddenPages = new HashSet<String>();
-	private int numberOfImages = 0;
-	private int totalSizeOfImages = 0;
-	private int numberOfVideos = 0;
-	private int totalSizeOfVideos = 0;
-	private int numberOfDocuments = 0;
-	private int totalSizeOfDocuments = 0;
-	private int numberOfPages = 0;
-	private int totalSizeOfPages = 0;
+	private Set<String> pagesVisited;
+	private SynchronizedQueue<String> urlsToDownload;
+	private SynchronizedQueue<String> htmlToAnalyze;
+	private Set<String> forbiddenPages;
+	private TypeStatistics imageFiles;
+	private TypeStatistics videoFiles;
+	private TypeStatistics documentFiles;
+	private TypeStatistics pagesFiles;
 	// Links from the same domain
-	private int numberOfInternalLinks = 0;
-	private int numberOfExternalLinks = 0;
+	private int numberOfInternalLinks;
+	private int numberOfExternalLinks;
+	private Thread[] downloaderThreads;
+	private Thread[] analyzerThreads;
+	private Boolean isCrawlerRunning = false;
+	private String portScanResults;
 
 
 
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
-		
+
 		System.out.println(crawlerConfiguration.get(maxDownloadersKey));
-		
+
 		maxDownloaders = Integer.parseInt(crawlerConfiguration.get(maxDownloadersKey));
 		maxAnalyzers = Integer.parseInt(crawlerConfiguration.get(maxAnalyzersKey));
 		imageExtensionsList = stringToList(crawlerConfiguration.get(imageExtensionsKey));
 		videoExtensionsList = stringToList(crawlerConfiguration.get(videoExtensionsKey));
 		documentExtensionsList = stringToList(crawlerConfiguration.get(documentExtensionsKey));
-		
+		imageFiles = new TypeStatistics();
+		videoFiles = new TypeStatistics();
+		documentFiles = new TypeStatistics();
+		pagesFiles = new TypeStatistics();
+
 		System.out.println("Crawler created with configuration:");
 		System.out.println("Downloader: " + maxDownloaders);
 		System.out.println("Analyzers: " + maxAnalyzers);
@@ -54,7 +59,7 @@ public class Crawler {
 
 
 	private List<String> stringToList(String listAsString) {
-		
+
 		List<String> result = new LinkedList<String>();
 		String[] seperatedString = listAsString.split(",");
 		for (int i = 0; i < seperatedString.length; i++) {
@@ -66,21 +71,98 @@ public class Crawler {
 		return result;
 	}
 
+	public boolean isBusy() {
+		return isCrawlerRunning;
+	}
 
-	public void search(String url)
+	public String activateCrawler(String targetURL, boolean ignoreRobots, boolean performPortScan) throws InterruptedException {
+
+		String result;
+		if (isCrawlerRunning) {
+			return "Crawler already running";
+		} else {
+			synchronized (isCrawlerRunning) {
+				if (isCrawlerRunning) {
+					return "Crawler already running"; 
+				}
+				initStatistics();
+				isCrawlerRunning = true;
+				if (performPortScan) {
+					portScanResults = portScan(targetURL);
+				} else {
+					portScanResults = "Port scan was not selected.";
+				}
+				
+				Set<String> pagesFromRobotsFile = readRobotsFile(targetURL);
+				if (pagesFromRobotsFile != null) {
+					if (ignoreRobots) {
+						for (String page : pagesFromRobotsFile) {
+							urlsToDownload.put(page);
+						}
+					} else {
+						forbiddenPages = pagesFromRobotsFile;
+					}
+				} else {
+					forbiddenPages = new HashSet<String>();
+				}
+				
+				
+				downloaderThreads = new Thread[maxDownloaders - 1];
+				analyzerThreads = new Thread[maxAnalyzers - 1];
+				for (int i = 0; i < analyzerThreads.length; i++) {
+					analyzerThreads[i] = new Thread(new Analyzer(this));
+				}
+				for (int i = 0; i < downloaderThreads.length; i++) {
+					downloaderThreads[i] = new Thread(new Downloader(this));
+				}
+				result = "Activated crawler";	
+			}
+
+		}
+
+		return result;
+	}
+
+	private Set<String> readRobotsFile(String targetURL) {
+		// TODO Read robots file from request url and put in set
+		return null;
+	}
+
+
+	private String portScan(String targetURL) {
+		// TODO perform port scan
+		return "Implement me??";
+	}
+
+
+	private void initStatistics() {
+
+		pagesVisited = new HashSet<String>();
+		urlsToDownload = new SynchronizedQueue<String>();
+		htmlToAnalyze = new SynchronizedQueue<String>();
+		numberOfInternalLinks = 0;
+		numberOfExternalLinks = 0;
+		imageFiles.init();
+		videoFiles.init();
+		documentFiles.init();
+		pagesFiles.init();
+
+	}
+
+	public void search(String url) throws InterruptedException
 	{
 		while(this.pagesVisited.size() < MAX_PAGES_TO_SEARCH)
 		{
 			String currentUrl;
 			CrawlerLeg leg = new CrawlerLeg();
-			if(this.pagesToVisit.isEmpty())
+			if(this.urlsToDownload.isEmpty())
 			{
 				currentUrl = url;
 				this.pagesVisited.add(url);
 			}
 			else
 			{
-				currentUrl = this.nextUrl();
+				currentUrl = this.nextUrlToDownload();
 			}
 			boolean success = leg.crawl(currentUrl); // Lots of stuff happening here. Look at the crawl method in
 			// CrawlerLeg
@@ -88,8 +170,8 @@ public class Crawler {
 			if(success)
 			{
 				System.out.println(String.format("**Success** Crawling %s has finished.", currentUrl));
-				this.pagesToVisit.addAll(leg.getLinks());
-				updateStatistics(leg);
+				this.urlsToDownload.addAll(leg.getLinks());
+				//updateStatistics(leg);
 			}else{
 				System.out.println(String.format("**Failure** Crawling %s has not finished.", currentUrl));
 			}
@@ -104,42 +186,78 @@ public class Crawler {
 	 * sure this method doesn't return a URL that has already been visited.
 	 * 
 	 * @return
+	 * @throws InterruptedException 
 	 */
-	private String nextUrl()
+	protected String nextUrlToDownload() throws InterruptedException
 	{
 		String nextUrl;
 		do
 		{
-			nextUrl = this.pagesToVisit.remove(0);
-		} while(this.pagesVisited.contains(nextUrl));
+			nextUrl = this.urlsToDownload.take();
+		} while(this.pagesVisited.contains(nextUrl) || this.forbiddenPages.contains(nextUrl));
 		this.pagesVisited.add(nextUrl);
 		return nextUrl;
 	}
 
-	public void updateStatistics(CrawlerLeg leg){
-		updateImages(leg);
-		updateVideos(leg);
-		updateDocuments(leg);
-		updateImages(leg);
+	protected void addUrlToDownload(String url) throws InterruptedException {
+
+		if (!pagesVisited.contains(url)) {
+			urlsToDownload.put(url);
+		}	
 	}
 
-	public void updateImages(CrawlerLeg leg){
-		this.numberOfImages += leg.getNumberOfImages();
-		this.totalSizeOfImages += leg.getTotalSizeOfImages();
+	protected String nextHtmlToAnalyze() throws InterruptedException {
+		return htmlToAnalyze.take();
+	}
+	
+	protected void addHtmlToAnalyze() throws InterruptedException {
+		htmlToAnalyze.take();
 	}
 
-	public void updateVideos(CrawlerLeg leg){
-		this.numberOfVideos += leg.getNumberOfVideos();
-		this.totalSizeOfVideos += leg.getTotalSizeOfVideos();
+	protected void updateImages(int numberOfImages, int sizeOfImages){
+
+		synchronized (imageFiles) {
+			imageFiles.updateCounter(numberOfImages, sizeOfImages);
+		}
 	}
 
-	public void updateDocuments(CrawlerLeg leg){
-		this.numberOfDocuments += leg.getNumberOfDocuments();
-		this.totalSizeOfDocuments += leg.getTotalSizeOfDocuments();
+	protected void updateVideos(int numberOfVideos, int sizeOfVideos){
+
+		synchronized (videoFiles) {
+			videoFiles.updateCounter(numberOfVideos, sizeOfVideos);
+		}
 	}
 
-	public void updatePages(CrawlerLeg leg){
-		this.numberOfPages += leg.getNumberOfPages();
-		this.totalSizeOfPages += leg.getTotalSizeOfPages();
+	protected void updateDocuments(int numberOfDocuments, int sizeOfDocuments){
+		synchronized (documentFiles) {
+			documentFiles.updateCounter(numberOfDocuments, sizeOfDocuments);
+		}
+	}
+
+	protected void updatePages(int numberOfPages, int sizeOfPages){
+		synchronized (pagesFiles) {
+			pagesFiles.updateCounter(numberOfPages, sizeOfPages);
+		}
+	}
+
+	public List<String> getImageExtensions() {
+		return cloneList(imageExtensionsList);
+	}
+
+	public List<String> getVideoExtensions() {
+		return cloneList(videoExtensionsList);
+	}
+
+	public List<String> getDocumentExtensions() {
+		return cloneList(documentExtensionsList);
+	}
+
+
+	private List<String> cloneList(List<String> list) {
+		List<String> result = new LinkedList<String>();
+		for (String string : list) {
+			result.add(string);
+		}
+		return result;
 	}
 }
