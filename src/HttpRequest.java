@@ -18,15 +18,17 @@ final class HttpRequest implements Runnable
 	private SocketQueue socketRequestsQueue;
 	public String fullPathForFile;
 	private String[] requestUrlAndBody;
+	private Crawler serverCrawler;
 
 
 	// Constructor
-	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber)
+	public HttpRequest(File rootDirectory, File defaultPage, SocketQueue socketRequestsQueue, int threadNumber, Crawler crawler)
 	{
 		this.rootDirectory = rootDirectory;
 		this.defaultPage = defaultPage;
 		this.socketRequestsQueue = socketRequestsQueue;
 		this.threadNumber = threadNumber;
+		this.serverCrawler = crawler;
 	}
 
 	// Implement the run() method of the Runnable interface.

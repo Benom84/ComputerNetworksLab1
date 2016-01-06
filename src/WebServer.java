@@ -13,10 +13,20 @@ public class WebServer {
 	private static String configurationSeperator = "=";
 	private static String rootKey = "root";
 	private static String portKey = "port";
-	
 	private static String defaultPageKey = "defaultPage";
 	private static String maxThreadsKey = "maxThreads";
+	private static String maxDownloadersKey = "maxDownloaders";
+	private static String maxAnalyzersKey = "maxAnalyzers";
+	private static String imageExtensionsKey = "imageExtensions";
+	private static String videoExtensionsKey = "videoExtensions";
+	private static String documentExtensionsKey = "documentExtensions";
+	private static int serverDefaultMaxDownloaders = 10;
+	private static int serverDefaultMaxAnalyzers = 2;
+	private static String serverDefaultImageExtensions = "bmp, jpg, png, gif, ico";
+	private static String serverDefaultVideoExtensions = "avi, mpg, mp4, wmv, mov, flv, swf, mkv";
+	private static String serverDefaultDocumentExtensions = "pdf, doc, docx, xls, xlsx, ppt, pptx";
 	private static String newLine = System.lineSeparator();
+	
 
 
 	public static void main(String[] args) {
@@ -43,11 +53,22 @@ public class WebServer {
 			configuration.put(rootKey, serverDefaultRoot);
 			configuration.put(maxThreadsKey, Integer.toString(serverDefaultMaxThreads));
 			configuration.put(portKey, Integer.toString(serverDefaultPort));
+			configuration.put(maxDownloadersKey, Integer.toString(serverDefaultMaxDownloaders));
+			configuration.put(maxAnalyzersKey, Integer.toString(serverDefaultMaxAnalyzers));
+			configuration.put(imageExtensionsKey, serverDefaultImageExtensions);
+			configuration.put(videoExtensionsKey, serverDefaultVideoExtensions);
+			configuration.put(documentExtensionsKey, serverDefaultDocumentExtensions);
 		}
 
 		String configurationCheckResults = configurationCheck(configuration);
+		String crawlerConfigurationCheckResults = crawlerConfigurationCheck(configuration);
 		if (!configurationCheckResults.isEmpty()) {
 			System.out.println(configurationCheckResults);
+			
+		}
+		if (!crawlerConfigurationCheckResults.isEmpty()) {
+			System.out.println(crawlerConfigurationCheckResults);
+			
 		}
 		if (!checkForBasicConfiguration(configuration)) {
 			System.out.println("Errors configuring sever. Exiting!");
@@ -55,6 +76,9 @@ public class WebServer {
 		}
 
 		System.out.println("Configuration successfully loaded.");
+		
+		// Copy crawler configuration to a different map
+		HashMap<String, String> crawlerConfiguration = createCrawlerConfiguration(configuration);
 
 		// Load the configuration set
 		port = Integer.parseInt(configuration.get(portKey));
@@ -75,15 +99,14 @@ public class WebServer {
 		System.out.println("Listening port : " + port);
 		SocketQueue socketRequestsQueue = new SocketQueue();
 		
+		Crawler crawler = new Crawler(crawlerConfiguration);
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
 		
 		for (int i = 0; i < htmlResponseThreads.length; i++) {
-			htmlResponseThreads[i] = new Thread(new HttpRequest(root, defaultPage, socketRequestsQueue, i));
+			htmlResponseThreads[i] = new Thread(new HttpRequest(root, defaultPage, socketRequestsQueue, i, crawler));
 			htmlResponseThreads[i].start();
 		}
 
-		Crawler crawler = new Crawler();
-		crawler.search(serverDefaultPage);
 		while (true) {
 
 			// Listen for a TCP connection request.
@@ -104,6 +127,19 @@ public class WebServer {
 				System.out.println("socketRequestsQueue threw: " + e.toString());
 			}
 		}
+	}
+
+	private static HashMap<String, String> createCrawlerConfiguration(HashMap<String, String> configuration) {
+		
+		HashMap<String, String> crawlerConfiguration = new HashMap<String, String>();
+		crawlerConfiguration.put(maxDownloadersKey, configuration.get(maxDownloadersKey));
+		crawlerConfiguration.put(maxAnalyzersKey, configuration.get(maxAnalyzersKey));
+		crawlerConfiguration.put(imageExtensionsKey, configuration.get(imageExtensionsKey));
+		crawlerConfiguration.put(videoExtensionsKey, configuration.get(videoExtensionsKey));
+		crawlerConfiguration.put(documentExtensionsKey, configuration.get(documentExtensionsKey));
+		
+		return crawlerConfiguration;
+		
 	}
 
 	private static boolean checkForBasicConfiguration(HashMap<String, String> configuration) {
@@ -127,6 +163,29 @@ public class WebServer {
 
 		// Checking the default page
 		result.append(configurationValueCheck(configuration, defaultPageKey, serverDefaultPage));
+
+
+		return result.toString();
+	}
+	
+	private static String crawlerConfigurationCheck(HashMap<String, String> configuration) {
+
+		StringBuilder result = new StringBuilder();
+
+		// Checking the maxDownloaders
+		result.append(configurationValueCheck(configuration, maxDownloadersKey, serverDefaultMaxDownloaders));
+
+		// Checking the maxAnalyzers
+		result.append(configurationValueCheck(configuration, maxAnalyzersKey, serverDefaultMaxAnalyzers));
+
+		// Checking the imageExtensions
+		result.append(configurationValueCheck(configuration, imageExtensionsKey, serverDefaultImageExtensions));
+
+		// Checking the videoExtensions
+		result.append(configurationValueCheck(configuration, videoExtensionsKey, serverDefaultVideoExtensions));
+		
+		// Checking the documentExtensions
+		result.append(configurationValueCheck(configuration, documentExtensionsKey, serverDefaultDocumentExtensions));
 
 
 		return result.toString();
@@ -278,6 +337,7 @@ public class WebServer {
 			configFileBufferReader = new BufferedReader(new FileReader(configFile));
 			lineFromFile = configFileBufferReader.readLine();
 			while (lineFromFile != null) {
+				System.out.println(lineFromFile);
 				lineToKeyAndValue = lineFromFile.split(configurationSeperator);
 				if (lineToKeyAndValue.length == 2) {
 					configurationMap.put(lineToKeyAndValue[0], lineToKeyAndValue[1]);

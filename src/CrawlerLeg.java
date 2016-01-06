@@ -7,32 +7,32 @@ import java.util.List;
 
 public class CrawlerLeg {
 
-	    // We'll use a fake USER_AGENT so the web server thinks the robot is a normal web browser.
-	    private static final String USER_AGENT =
-	            "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
-	    private List<String> links = new LinkedList<String>();
-	    //private Document htmlDocument;
-	    int numberOfImages = 0;
-		  private int totalSizeOfImages = 0;
-		  private int numberOfVideos = 0;
-		  private int totalSizeOfVideos = 0;
-		  private int numberOfDocuments = 0;
-		  private int totalSizeOfDocuments = 0;
-		  private int numberOfPages = 0;
-		  private int totalSizeOfPages = 0;
+	// We'll use a fake USER_AGENT so the web server thinks the robot is a normal web browser.
+	private static final String USER_AGENT =
+			"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
+	private List<String> links = new LinkedList<String>();
+	//private Document htmlDocument;
+	int numberOfImages = 0;
+	private int totalSizeOfImages = 0;
+	private int numberOfVideos = 0;
+	private int totalSizeOfVideos = 0;
+	private int numberOfDocuments = 0;
+	private int totalSizeOfDocuments = 0;
+	private int numberOfPages = 0;
+	private int totalSizeOfPages = 0;
 
 
-	    /**
-	     * This performs all the work. It makes an HTTP request, checks the response, and then gathers
-	     * up all the links on the page. 
-	     * 
-	     * @param url
-	     *            - The URL to visit
-	     * @return whether or not the crawl was successful
-	     */
-	    public boolean crawl(String url)
-	    {
-	        /*
+	/**
+	 * This performs all the work. It makes an HTTP request, checks the response, and then gathers
+	 * up all the links on the page. 
+	 * 
+	 * @param url
+	 *            - The URL to visit
+	 * @return whether or not the crawl was successful
+	 */
+	public boolean crawl(String url)
+	{
+		/*
 			try
 	        {
 	        	//TODO: create a connection and get the body from the connection if response is 200
@@ -61,20 +61,20 @@ public class CrawlerLeg {
 	            // We were not successful in our HTTP request
 	            return false;
 	        } */
-			//TODO: delete this row
-	    return false;
-		}
+		//TODO: delete this row
+		return false;
+	}
 
 
-	    /**
-	     * Performs a search on the body of on the HTML document that is retrieved. This method should
-	     * only be called after a successful crawl.
-	     * 
-	     * @param searchWord
-	     *            - The word or string to look for
-	     * @return whether or not the word was found
-	     */
-	    /*
+	/**
+	 * Performs a search on the body of on the HTML document that is retrieved. This method should
+	 * only be called after a successful crawl.
+	 * 
+	 * @param searchWord
+	 *            - The word or string to look for
+	 * @return whether or not the word was found
+	 */
+	/*
 	    public boolean searchForWord(String searchWord)
 	    {
 	        // Defensive coding. This method should only be used after a successful crawl.
@@ -87,43 +87,43 @@ public class CrawlerLeg {
 	        String bodyText = this.htmlDocument.body().text();
 	        return bodyText.toLowerCase().contains(searchWord.toLowerCase());
 	    }
-	    */
+	 */
 
-	    public List<String> getLinks()
-	    {
-	        return this.links;
-	    }
-	    
-	    public int getNumberOfImages(){
-	    	return numberOfImages;
-	    }
-	    
-	    public int getNumberOfVideos(){
-	    	return numberOfVideos;
-	    }
-	    
-	    public int getNumberOfDocuments(){
-	    	return numberOfDocuments;
-	    }
-	    
-	    public int getNumberOfPages(){
-	    	return numberOfPages;
-	    }
-	    
-	    public int getTotalSizeOfImages(){
-	    	return totalSizeOfImages;
-	    }
-	    
-	    public int getTotalSizeOfVideos(){
-	    	return totalSizeOfVideos;
-	    }
-	    
-	    public int getTotalSizeOfDocuments(){
-	    	return totalSizeOfDocuments;
-	    }
-	    
-	    public int getTotalSizeOfPages(){
-	    	return totalSizeOfPages;
-	    }
-
+	public List<String> getLinks()
+	{
+		return this.links;
 	}
+
+	public int getNumberOfImages(){
+		return numberOfImages;
+	}
+
+	public int getNumberOfVideos(){
+		return numberOfVideos;
+	}
+
+	public int getNumberOfDocuments(){
+		return numberOfDocuments;
+	}
+
+	public int getNumberOfPages(){
+		return numberOfPages;
+	}
+
+	public int getTotalSizeOfImages(){
+		return totalSizeOfImages;
+	}
+
+	public int getTotalSizeOfVideos(){
+		return totalSizeOfVideos;
+	}
+
+	public int getTotalSizeOfDocuments(){
+		return totalSizeOfDocuments;
+	}
+
+	public int getTotalSizeOfPages(){
+		return totalSizeOfPages;
+	}
+
+}
