@@ -1,9 +1,4 @@
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Crawler {
 	private static final int MAX_PAGES_TO_SEARCH = 100;
@@ -164,7 +159,7 @@ public class Crawler {
 			{
 				currentUrl = this.nextUrlToDownload();
 			}
-			boolean success = leg.crawl(currentUrl); // Lots of stuff happening here. Look at the crawl method in
+			boolean success = leg.crawl(this, currentUrl); // Lots of stuff happening here. Look at the crawl method in
 			// CrawlerLeg
 
 			if(success)
