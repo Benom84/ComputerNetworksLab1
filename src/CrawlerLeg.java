@@ -3,6 +3,7 @@ import java.net.HttpURLConnection;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -32,36 +33,36 @@ public class CrawlerLeg {
 			try
 	        {
 	        	//TODO: create a connection and get the body from the connection if response is 200
-
-				Connection connection = Jsoup.connect(url);
-				int statusCode = connection.response().statusCode();
-	            if(statusCode == 200) // 200 is the HTTP OK status code
+				ClientRequest connection = new ClientRequest(url, ClientRequest.headRequest);
+				//Connection connection = Jsoup.connect(url);
+				//int statusCode = connection.response().statusCode();
+	            if(connection.getResponseStatusCode().equals("200")) // 200 is the HTTP OK status code
 	            {
 					System.out.println("\n**Visiting** Received web page at " + url);
-					if(connection.response().contentType().contains("text/html")){
-						Document htmlDocument = connection.get();
-						Elements linksOnPage = htmlDocument.select("a[href]");
-						for(Element link : linksOnPage)
+					if(connection.responseHeaderFields.get("Content-Type").contains("text/html")){
+						String body = connection.getBody();
+						Set<String> linksOnPage = connection.getLinkesFromHtml(connection.getBody());
+						for(String link : linksOnPage)
 						{
-							this.links.add(link.absUrl("href"));
+							this.links.add(link);
 						}
 					}else if(isValidExtension(crawler.getImageExtensions(), url)){
-						String sizeAsString =connection.response().header("Content-Length");
+						String sizeAsString =connection.responseHeaderFields.get("Content-Length");
 						int sizeAsInt = Integer.parseInt(sizeAsString);
 						totalSizeOfImages += sizeAsInt;
 						numberOfImages++;
 					}else if(isValidExtension(crawler.getVideoExtensions(), url)){
-						String sizeAsString = connection.response().header("Content-Length");
+						String sizeAsString =connection.responseHeaderFields.get("Content-Length");
 						int sizeAsInt = Integer.parseInt(sizeAsString);
 						totalSizeOfVideos += sizeAsInt;
 						numberOfVideos++;
 					}else if(isValidExtension(crawler.getImageExtensions(), url)){
-						String sizeAsString = connection.response().header("Content-Length");
+						String sizeAsString =connection.responseHeaderFields.get("Content-Length");
 						int sizeAsInt = Integer.parseInt(sizeAsString);
 						totalSizeOfDocuments += sizeAsInt;
 						numberOfDocuments++;
 					}else{
-						String sizeAsString = connection.response().header("Content-Length");
+						String sizeAsString =connection.responseHeaderFields.get("Content-Length");
 						int sizeAsInt = Integer.parseInt(sizeAsString);
 						totalSizeOfPages += sizeAsInt;
 						numberOfPages++;
@@ -71,7 +72,7 @@ public class CrawlerLeg {
 					System.out.println("\n**Error** got bad response from " + url);
 				}
 
-	            return true;
+	            return false;
 	        }
 	        catch(IOException ioe) {
 				// We were not successful in our HTTP request

@@ -1,6 +1,14 @@
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+import org.jsoup.helper.HttpConnection;
+import org.jsoup.nodes.Document;
+
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.util.*;
 
 public class Crawler {
+	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
 	private static final int MAX_PAGES_TO_SEARCH = 100;
 	private static String maxDownloadersKey = "maxDownloaders";
 	private static String maxAnalyzersKey = "maxAnalyzers";
@@ -29,7 +37,14 @@ public class Crawler {
 	private String portScanResults;
 
 
+	public static void main(String[] args) throws IOException {
+		Crawler aviv = new Crawler();
+		Set<String> testing = aviv.readRobotsFile("http://www.google.com/robots.txt");
+		//System.out.println(testing.toString());
+	}
+	public Crawler(){
 
+	}
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
 
 		System.out.println(crawlerConfiguration.get(maxDownloadersKey));
@@ -70,7 +85,7 @@ public class Crawler {
 		return isCrawlerRunning;
 	}
 
-	public String activateCrawler(String targetURL, boolean ignoreRobots, boolean performPortScan) throws InterruptedException {
+	public String activateCrawler(String targetURL, boolean ignoreRobots, boolean performPortScan) throws InterruptedException, IOException {
 
 		String result;
 		if (isCrawlerRunning) {
@@ -118,9 +133,26 @@ public class Crawler {
 		return result;
 	}
 
-	private Set<String> readRobotsFile(String targetURL) {
+	private Set<String> readRobotsFile(String targetURL) throws IOException {
 		// TODO Read robots file from request url and put in set
-		return null;
+		Set<String> result = new HashSet<>();
+		ClientRequest connection = new ClientRequest(targetURL, ClientRequest.getRequest);
+		//Connection connection = Jsoup.connect(targetURL).userAgent(USER_AGENT);
+		//Document document = connection.get();
+		System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
+		if(connection.getResponseStatusCode().equals("200")) {
+			String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
+			//System.out.println(forbiddenUrls.length);
+			for (String url : forbiddenUrls) {
+				if (url.contains("Disallow")) {
+					int startOfSubStringIndex = url.indexOf(" ");
+					String urlToForbiddenList = url.substring(startOfSubStringIndex + 1, url.length());
+					System.out.println("Got the URL (From robots.txt): " + urlToForbiddenList);
+					result.add(urlToForbiddenList);
+				}
+			}
+		}
+	return result;
 	}
 
 
