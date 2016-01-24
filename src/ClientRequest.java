@@ -29,8 +29,7 @@ public class ClientRequest {
     private String responseStatusCode;
     private String responseHttpVersion;
     private String[] parsedRequest;
-    private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?((www)?.*?)(\\/.*)");
-
+    private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public ClientRequest(String url, String requestType) throws IOException {
         pharseURL(url);
@@ -119,11 +118,15 @@ public class ClientRequest {
     }
 
     private void pharseURL(String url){
+        //Group(1) is http:// or https://
+        //Group(2) is www.
+        //Group(3) is host
+        //Group(4) is location
         try {
             Matcher matcher = urlPattern.matcher(url);
             if (matcher.find()) {
 
-                this.host = matcher.group(2);
+                this.host = matcher.group(3);
 
                 if (matcher.group(4) == "null") {
                     this.location = "//";
@@ -132,6 +135,10 @@ public class ClientRequest {
                 }
 
                 //System.out.println("Host is: " + host + CRLF + "Location is: " + location);
+            }else{
+                if(!url.endsWith("/")){
+                    pharseURL(url + "/");
+                }
             }
         }catch(Exception e){
             System.out.println("Failed to parse the Url: " + url);

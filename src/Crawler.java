@@ -1,7 +1,4 @@
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.helper.HttpConnection;
-import org.jsoup.nodes.Document;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -39,8 +36,9 @@ public class Crawler {
 
 	public static void main(String[] args) throws IOException {
 		Crawler aviv = new Crawler();
-		Set<String> testing = aviv.readRobotsFile("http://www.google.com/robots.txt");
-		//System.out.println(testing.toString());
+		//Set<String> testing = aviv.readRobotsFile("http://www.google.com/robots.txt");
+		//ClientRequest testing = new ClientRequest("ynet.co.il", ClientRequest.headRequest);
+		//System.out.println(testing.getResponseStatusCode());
 	}
 	public Crawler(){
 
