@@ -32,7 +32,7 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public ClientRequest(String url, String requestType) throws IOException {
-        pharseURL(url);
+        parseURL(url);
         //host = "www.google.com";
         //location = "\\";
         this.requestType = requestType;
@@ -68,7 +68,7 @@ public class ClientRequest {
                 headers = splitResponse[0];
                 body = splitResponse[1];
             }
-            pharseResponse(headers);
+            parseResponse(headers);
         }catch (Exception e){
             System.out.println("Failed to connect to + " + url);
         }
@@ -81,9 +81,9 @@ public class ClientRequest {
 
 
     }
-    private void pharseResponse(String unpharsedResponse){
+    private void parseResponse(String unparsedResponse){
 
-        this.unparsedResponse = unpharsedResponse;
+        this.unparsedResponse = unparsedResponse;
 
         // Divide the string to lines
         String[] requestLines = unparsedResponse.split(newLine);
@@ -117,7 +117,7 @@ public class ClientRequest {
         return links;
     }
 
-    private void pharseURL(String url){
+    private void parseURL(String url){
         //Group(1) is http:// or https://
         //Group(2) is www.
         //Group(3) is host
@@ -137,7 +137,7 @@ public class ClientRequest {
                 //System.out.println("Host is: " + host + CRLF + "Location is: " + location);
             }else{
                 if(!url.endsWith("/")){
-                    pharseURL(url + "/");
+                    parseURL(url + "/");
                 }
             }
         }catch(Exception e){

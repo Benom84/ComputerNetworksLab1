@@ -235,8 +235,8 @@ public class Crawler {
 		return htmlToAnalyze.take();
 	}
 	
-	protected void addHtmlToAnalyze() throws InterruptedException {
-		htmlToAnalyze.take();
+	protected void addHtmlToAnalyze(String htmlBody) throws InterruptedException {
+		htmlToAnalyze.put(htmlBody);
 	}
 
 	protected void updateImages(int numberOfImages, int sizeOfImages){
