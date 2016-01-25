@@ -3,6 +3,8 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Crawler {
 	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
@@ -32,6 +34,8 @@ public class Crawler {
 	private Thread[] analyzerThreads;
 	private Boolean isCrawlerRunning = false;
 	private String portScanResults;
+	private String allowedHost;
+	private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
 
 	public static void main(String[] args) throws IOException {
@@ -132,12 +136,12 @@ public class Crawler {
 	}
 
 	private Set<String> readRobotsFile(String targetURL) throws IOException {
-		// TODO Read robots file from request url and put in set
+
 		Set<String> result = new HashSet<>();
 		ClientRequest connection = new ClientRequest(targetURL, ClientRequest.getRequest);
 		//Connection connection = Jsoup.connect(targetURL).userAgent(USER_AGENT);
 		//Document document = connection.get();
-		System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
+		//System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
 		if(connection.getResponseStatusCode().equals("200")) {
 			String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
 			//System.out.println(forbiddenUrls.length);
@@ -176,6 +180,11 @@ public class Crawler {
 
 	public void search(String url) throws InterruptedException
 	{
+		allowedHost = getHost(url);
+		if(allowedHost.equals("null")){
+			System.out.println("Host wasn't found");
+			return;
+		}
 		while(this.pagesVisited.size() < MAX_PAGES_TO_SEARCH)
 		{
 			String currentUrl;
@@ -203,6 +212,29 @@ public class Crawler {
 
 		}
 		System.out.println("\n**Done** Visited " + this.pagesVisited.size() + " web page(s)");
+	}
+
+	private String getHost(String url){
+		//Group(1) is http:// or https://
+		//Group(2) is www.
+		//Group(3) is host
+		//Group(4) is location
+		try {
+			Matcher matcher = urlPattern.matcher(url);
+			if (matcher.find()) {
+
+				return matcher.group(3);
+
+			}else{
+				if(!url.endsWith("/")){
+					getHost(url + "/");
+				}
+			}
+
+		}catch(Exception e){
+			System.out.println("Failed to parse the Url: " + url);
+		}
+		return null;
 	}
 
 
@@ -284,5 +316,10 @@ public class Crawler {
 			result.add(string);
 		}
 		return result;
+	}
+
+	//For Debbug
+	public void changeRunningStatus(){
+		isCrawlerRunning = true;
 	}
 }

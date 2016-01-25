@@ -7,7 +7,7 @@ public class WebServer {
 
 	private static String configFile = "config.ini";
 	private static String serverDefaultRoot = "c:\\serverroot\\";
-	private static String serverDefaultPage = "index.html";
+	private static String serverDefaultPage = "WebCrawler.html";
 	private static int serverDefaultPort = 8080;
 	private static int serverDefaultMaxThreads = 10;
 	private static String configurationSeperator = "=";
@@ -26,6 +26,7 @@ public class WebServer {
 	private static String serverDefaultVideoExtensions = "avi, mpg, mp4, wmv, mov, flv, swf, mkv";
 	private static String serverDefaultDocumentExtensions = "pdf, doc, docx, xls, xlsx, ppt, pptx";
 	private static String newLine = System.lineSeparator();
+	public static Crawler crawler;
 	
 
 
@@ -99,7 +100,7 @@ public class WebServer {
 		System.out.println("Listening port : " + port);
 		SynchronizedQueue socketRequestsQueue = new SynchronizedQueue();
 		
-		Crawler crawler = new Crawler(crawlerConfiguration);
+		crawler = new Crawler(crawlerConfiguration);
 		Thread[] htmlResponseThreads = new Thread[maxThreads - 1];
 		
 		for (int i = 0; i < htmlResponseThreads.length; i++) {

@@ -28,8 +28,6 @@ public class CrawlerLeg {
 	        {
 	        	//TODO: create a connection and get the body from the connection if response is 200
 				ClientRequest connection = new ClientRequest(url, ClientRequest.headRequest);
-				//Connection connection = Jsoup.connect(url);
-				//int statusCode = connection.response().statusCode();
 	            if(connection.getResponseStatusCode().equals("200")) // 200 is the HTTP OK status code
 	            {
 					System.out.println("\n**Visiting** Received web page at " + url);

@@ -153,7 +153,7 @@ final class HttpRequest implements Runnable
 		return true;
 	}
 
-	private HtmlResponse respond200(HtmlRequest htmlRequest) throws IOException {
+	private HtmlResponse respond200(HtmlRequest htmlRequest) throws IOException, InterruptedException {
 		HtmlResponse response200 = new HtmlResponse();
 		byte[] bodyInBytes;
 		
@@ -162,6 +162,29 @@ final class HttpRequest implements Runnable
 		}else if(htmlRequest.type.equals("POST")){
 			if (htmlRequest.requestedFile.equals("/params_info.html")) {
 				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
+			}else if(htmlRequest.requestedFile.equals("/execResult.html")){
+				System.out.println("***Parameters for Crawler : " + htmlRequest.parametersInRequestBody.toString());
+				if(WebServer.crawler.isBusy()){
+					bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
+				}else{
+					bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
+
+					String domain = htmlRequest.parametersInRequestBody.get("Domain");
+					boolean ignoreRobots = false;
+					boolean performPortScan = false;
+
+					if(htmlRequest.parametersInRequestBody.containsKey("portscan")){
+						performPortScan = true;
+					}
+					if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
+						ignoreRobots = true;
+					}
+					//WebServer.crawler.activateCrawler(domain, ignoreRobots, performPortScan);
+					System.out.println("Domain is: " + domain);
+					System.out.println("Perform port scan: " + performPortScan);
+					System.out.println("Ignore robots.txt: " + ignoreRobots);
+				}
+
 			}
 			else{
 				bodyInBytes = null;
@@ -201,6 +224,24 @@ final class HttpRequest implements Runnable
 		bis.read(buffer,0,buffer.length);
 		bis.close();
 		
+		return buffer;
+	}
+
+	private byte[] readFileForResponse(String filepath) throws IOException {
+
+		if(filepath.equals("/")){
+			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
+		}else{
+			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + filepath;
+		}
+
+		File file = new File (fullPathForFile);
+		byte [] buffer  = new byte [(int)file.length()];
+		FileInputStream fis = new FileInputStream(file);
+		BufferedInputStream bis = new BufferedInputStream(fis);
+		bis.read(buffer,0,buffer.length);
+		bis.close();
+
 		return buffer;
 	}
 
