@@ -24,6 +24,7 @@ public class Downloader implements Runnable {
 			// Get url from parent
 			try {
 				urlToDownload = parentCrawler.nextUrlToDownload();
+
 			} catch (InterruptedException e1) {
 				System.out.println("Error getting url, continuing to next.");
 				e1.printStackTrace();
@@ -54,6 +55,7 @@ public class Downloader implements Runnable {
 					try {
 						parentCrawler.addHtmlToAnalyze(clientRequest.getBody());
 						parentCrawler.updatePages(1, sizeOfFile);
+						parentCrawler.UpdatePagesVisited(urlToDownload);
 					} catch (InterruptedException e) {
 						System.out.println("Error add html body for " + urlToDownload);
 						e.printStackTrace();
@@ -69,7 +71,7 @@ public class Downloader implements Runnable {
 					}
 				}
 				
-			} else if (response.equals("302")) {
+			} else if (response.equals("302") || response.equals("301")) {
 				String newURL = clientRequest.responseHeaderFields.get("Location");
 				try {
 					parentCrawler.addUrlToDownload(newURL);

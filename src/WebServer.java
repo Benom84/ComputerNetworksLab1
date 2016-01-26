@@ -26,7 +26,7 @@ public class WebServer {
 	private static String serverDefaultVideoExtensions = "avi, mpg, mp4, wmv, mov, flv, swf, mkv";
 	private static String serverDefaultDocumentExtensions = "pdf, doc, docx, xls, xlsx, ppt, pptx";
 	private static String newLine = System.lineSeparator();
-	public static Crawler crawler;
+	private static Crawler crawler;
 	
 
 

@@ -164,10 +164,10 @@ final class HttpRequest implements Runnable
 				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
 			}else if(htmlRequest.requestedFile.equals("/execResult.html")){
 				System.out.println("***Parameters for Crawler : " + htmlRequest.parametersInRequestBody.toString());
-				if(WebServer.crawler.isBusy()){
+				if(serverCrawler.isBusy()){
 					bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
 				}else{
-					bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
+
 
 					String domain = htmlRequest.parametersInRequestBody.get("Domain");
 					boolean ignoreRobots = false;
@@ -179,7 +179,16 @@ final class HttpRequest implements Runnable
 					if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
 						ignoreRobots = true;
 					}
-					//WebServer.crawler.activateCrawler(domain, ignoreRobots, performPortScan);
+					boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
+					if (isConfigureSucceeded) {
+						bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
+						//Thread serverCrawlerThread = new Thread(serverCrawler);
+						//serverCrawlerThread.start();
+					} else {
+						bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
+					}
+
+					//serverCrawler.changeRunningStatus();
 					System.out.println("Domain is: " + domain);
 					System.out.println("Perform port scan: " + performPortScan);
 					System.out.println("Ignore robots.txt: " + ignoreRobots);
