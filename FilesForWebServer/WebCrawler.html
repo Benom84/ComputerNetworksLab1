@@ -1,0 +1,28 @@
+﻿<!doctype html>
+<html lang="en">
+	<head>
+		<title> Crawler HRML site </title>
+	</head>
+	<body>
+		<h1>This is the GUI page for the Crawler</h1>
+		<form id="generalform" method="post" action="execResult.html">
+			<table>
+				<tr>
+					<td><h3>Enter Domain</h3></td>
+					<td><input type="text" name="Domain"></td>
+				</tr>
+				
+				<tr>
+					<td><input type="checkbox" name="portscan">Perform full TCP port scan</td>
+				</tr>
+				<tr>
+					<td><input type="checkbox" name="robots.txt">Disrespect robots.txt</td>
+				</tr>
+				<tr>
+				<td></td>
+				<td><input type="submit" value="Start Crawler"></td>
+				</tr>
+			</table>
+		</form>	
+	</body>
+</html>
