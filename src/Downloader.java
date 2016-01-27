@@ -23,7 +23,13 @@ public class Downloader implements Runnable {
 			ClientRequest clientRequest = null;
 			// Get url from parent
 			try {
-				urlToDownload = parentCrawler.nextUrlToDownload();
+				if (parentCrawler.pagesVisited.size() < Crawler.MAX_PAGES_TO_SEARCH) {
+					urlToDownload = parentCrawler.nextUrlToDownload();	
+					parentCrawler.AdjustWorkingThreadCount(1);
+				} else {
+					return;
+				}
+				
 
 			} catch (InterruptedException e1) {
 				System.out.println("Error getting url, continuing to next.");
@@ -80,6 +86,8 @@ public class Downloader implements Runnable {
 					e.printStackTrace();
 				}
 			}
+			
+			parentCrawler.AdjustWorkingThreadCount(-1);
 			
 		}
 

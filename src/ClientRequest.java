@@ -17,7 +17,6 @@ public class ClientRequest {
     final static String CRLF = "\r\n";
     private String headers;
     private String body;
-    private List<String> linksExtractedFromHTML;
     private String host;
     private String location;
     private String requestType;
@@ -104,18 +103,7 @@ public class ClientRequest {
         responseHeaderFields = getHeaders(parsedRequest);
 
     }
-    public Set<String> getLinkesFromHtml(String HTMLPage){
 
-        Pattern linkPattern = Pattern.compile("href=\\'.*?(http:\\/\\/)*(.*?)\\'",  Pattern.CASE_INSENSITIVE|Pattern.DOTALL);
-        Matcher pageMatcher = linkPattern.matcher(HTMLPage);
-        Set<String> links = new HashSet<>();
-        while(pageMatcher.find()){
-            links.add(pageMatcher.group(2));
-            System.out.println(pageMatcher.group(2));
-        }
-
-        return links;
-    }
 
     private void parseURL(String url){
         //Group(1) is http:// or https://

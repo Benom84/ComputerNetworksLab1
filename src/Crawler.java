@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 public class Crawler implements Runnable {
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
-    private static final int MAX_PAGES_TO_SEARCH = 100;
+    protected static final int MAX_PAGES_TO_SEARCH = 100;
     private static String maxDownloadersKey = "maxDownloaders";
     private static String maxAnalyzersKey = "maxAnalyzers";
     private static String imageExtensionsKey = "imageExtensions";
@@ -18,10 +18,10 @@ public class Crawler implements Runnable {
     private static List<String> imageExtensionsList;
     private static List<String> videoExtensionsList;
     private static List<String> documentExtensionsList;
-    private Set<String> pagesVisited;
+    protected SynchronizedSet<String> pagesVisited;
     private SynchronizedQueue<String> urlsToDownload;
     private SynchronizedQueue<String> htmlToAnalyze;
-    private Set<String> forbiddenPages;
+    private SynchronizedSet<String> forbiddenPages;
     private TypeStatistics imageFiles;
     private TypeStatistics videoFiles;
     private TypeStatistics documentFiles;
@@ -37,6 +37,7 @@ public class Crawler implements Runnable {
     private Boolean isCrawlerRunning = false;
     private String portScanResults;
     private String allowedHost;
+    private Integer workingThreads;
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
 
@@ -69,7 +70,6 @@ public class Crawler implements Runnable {
         System.out.println("Document Extensions: " + Arrays.toString(documentExtensionsList.toArray()));
     }
 
-
     private List<String> stringToList(String listAsString) {
 
         List<String> result = new LinkedList<String>();
@@ -100,7 +100,6 @@ public class Crawler implements Runnable {
 
     public void run() {
 
-        String result;
         if (isCrawlerRunning) {
             return;
         } else {
@@ -117,7 +116,7 @@ public class Crawler implements Runnable {
                 portScanResults = "Port scan was not selected.";
             }
 
-            Set<String> pagesFromRobotsFile = null;
+            SynchronizedSet<String> pagesFromRobotsFile = null;
             try {
                 pagesFromRobotsFile = readRobotsFile(targetURL);
             } catch (IOException e) {
@@ -137,7 +136,7 @@ public class Crawler implements Runnable {
                     forbiddenPages = pagesFromRobotsFile;
                 }
             } else {
-                forbiddenPages = new HashSet<String>();
+                forbiddenPages = new SynchronizedSet<String>();
             }
 
             try {
@@ -155,6 +154,8 @@ public class Crawler implements Runnable {
                 downloaderThreads[i] = new Thread(new Downloader(this));
             }
 
+            workingThreads = 0;
+            
             for (int i = 0; i < analyzerThreads.length; i++) {
                 analyzerThreads[i].start();
             }
@@ -162,8 +163,15 @@ public class Crawler implements Runnable {
                 downloaderThreads[i].start();
             }
 
-            while ((!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty()) && (pagesVisited.size() < MAX_PAGES_TO_SEARCH)) {
-                //Jibrish
+            // If (the threads are active or the queues are not empty) and we didn't exceed the pages to visit
+            while ((!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty() || workingThreads > 0) && 
+            		(pagesVisited.size() < MAX_PAGES_TO_SEARCH)) {
+                try {
+					wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
             }
 
 
@@ -185,10 +193,15 @@ public class Crawler implements Runnable {
     }
 
 
+    protected void AdjustWorkingThreadCount(int num) {
+    	synchronized (workingThreads) {
+    		workingThreads = workingThreads + num;
+		}
+    }
+    
+    private SynchronizedSet<String> readRobotsFile(String targetURL) throws IOException {
 
-    private Set<String> readRobotsFile(String targetURL) throws IOException {
-
-        Set<String> result = new HashSet<>();
+    	SynchronizedSet<String> result = new SynchronizedSet<String>();
         ClientRequest connection = new ClientRequest(targetURL, ClientRequest.getRequest);
         //Connection connection = Jsoup.connect(targetURL).userAgent(USER_AGENT);
         //Document document = connection.get();
@@ -201,7 +214,12 @@ public class Crawler implements Runnable {
                     int startOfSubStringIndex = url.indexOf(" ");
                     String urlToForbiddenList = url.substring(startOfSubStringIndex + 1, url.length());
                     System.out.println("Got the URL (From robots.txt): " + urlToForbiddenList);
-                    result.add(urlToForbiddenList);
+                    try {
+						result.add(urlToForbiddenList);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
                 }
             }
         }
@@ -217,7 +235,7 @@ public class Crawler implements Runnable {
 
     private void initStatistics() {
 
-        pagesVisited = new HashSet<String>();
+        pagesVisited = new SynchronizedSet<String>();
         urlsToDownload = new SynchronizedQueue<String>();
         htmlToAnalyze = new SynchronizedQueue<String>();
         numberOfInternalLinks = 0;
@@ -367,6 +385,11 @@ public class Crawler implements Runnable {
     }
 
     public void UpdatePagesVisited(String page) {
-        pagesVisited.add(page);
+        try {
+			pagesVisited.add(page);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 }
