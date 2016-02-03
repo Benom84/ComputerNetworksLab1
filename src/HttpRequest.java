@@ -179,7 +179,9 @@ final class HttpRequest implements Runnable
 					if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
 						ignoreRobots = true;
 					}
+					System.out.println("HttpRequest is configuring Crawler.");
 					boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
+					System.out.println("HttpRequest is configuring Crawler. Results: " + isConfigureSucceeded);
 					if (isConfigureSucceeded) {
 						bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
 						//Thread serverCrawlerThread = new Thread(serverCrawler);
@@ -188,7 +190,8 @@ final class HttpRequest implements Runnable
 						bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
 					}
 
-					//serverCrawler.changeRunningStatus();
+					Thread crawlerThread = new Thread(serverCrawler);
+					crawlerThread.start();
 					System.out.println("Domain is: " + domain);
 					System.out.println("Perform port scan: " + performPortScan);
 					System.out.println("Ignore robots.txt: " + ignoreRobots);

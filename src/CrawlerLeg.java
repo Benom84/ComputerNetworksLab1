@@ -33,10 +33,10 @@ public class CrawlerLeg {
 					System.out.println("\n**Visiting** Received web page at " + url);
 					if(connection.responseHeaderFields.get("Content-Type").contains("text/html")){
 						String body = connection.getBody();
-						Set<String> linksOnPage = connection.getLinkesFromHtml(connection.getBody());
-						for(String link : linksOnPage)
+						//Set<String> linksOnPage = connection.getLinkesFromHtml(connection.getBody());
+						//for(String link : linksOnPage)
 						{
-							this.links.add(link);
+						//	this.links.add(link);
 						}
 					}else if(isValidExtension(crawler.getImageExtensions(), url)){
 						String sizeAsString =connection.responseHeaderFields.get("Content-Length");

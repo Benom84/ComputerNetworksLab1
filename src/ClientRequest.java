@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -31,12 +32,16 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public ClientRequest(String url, String requestType) throws IOException {
+    	
         parseURL(url);
         //host = "www.google.com";
         //location = "\\";
         this.requestType = requestType;
+        Socket socket = new Socket();
         try {
-            Socket socket = new Socket(host, port);
+        	System.out.println("Connecting socket to: " + host);
+            socket.connect(new InetSocketAddress(host, port));
+            System.out.println("Creating new OutputStream");
             DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
             //BufferedOutputStream socketOutputStream = new BufferedOutputStream(socket.getOutputStream());
             //PrintStream PS = new PrintStream(socket.getOutputStream());
@@ -64,12 +69,18 @@ public class ClientRequest {
                 body = null;
             } else if (requestType.equals(getRequest)) {
                 String[] splitResponse = response.toString().split(CRLF + CRLF);
+                System.out.println(response.toString());
                 headers = splitResponse[0];
-                body = splitResponse[1];
+                if (splitResponse.length > 1)
+                	body = splitResponse[1];
             }
             parseResponse(headers);
         }catch (Exception e){
-            System.out.println("Failed to connect to + " + url);
+            System.out.println("Failed to connect to " + url);
+            e.printStackTrace();
+        } finally {
+        	if (socket != null)
+        		socket.close();
         }
         //System.out.print(response.toString());
         //System.out.println("Status Code is: " + getResponseStatusCode());

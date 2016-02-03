@@ -38,8 +38,10 @@ public class Downloader implements Runnable {
 			}
 			fileType = getFileTypeFromURL(urlToDownload);
 			if (fileType.isEmpty() || fileType.equalsIgnoreCase("html") || fileType.equalsIgnoreCase("htm")) {
+				System.out.println("Creating client request of type get");
 				requestType = ClientRequest.getRequest;
 			} else {
+				System.out.println("Creating client request of type head");
 				requestType = ClientRequest.headRequest;
 			}
 			try {
@@ -79,8 +81,10 @@ public class Downloader implements Runnable {
 				
 			} else if (response.equals("302") || response.equals("301")) {
 				String newURL = clientRequest.responseHeaderFields.get("Location");
+				System.out.println("The request returned moved to location: " + newURL);
 				try {
-					parentCrawler.addUrlToDownload(newURL);
+					boolean isUrlAdded = parentCrawler.addUrlToDownload(newURL);
+					System.out.println(newURL + " added to download queue? " + isUrlAdded);
 				} catch (InterruptedException e) {
 					System.out.println("Error adding new url after 302: " + newURL);
 					e.printStackTrace();
@@ -98,9 +102,17 @@ public class Downloader implements Runnable {
 
 	private String getFileTypeFromURL(String urlToDownload) {
 
+		System.out.println("Url: " + urlToDownload);
+		if (urlToDownload.lastIndexOf('/') == -1)
+			return "";
 		String fileName = urlToDownload.substring( urlToDownload.lastIndexOf('/')+1, urlToDownload.length() );
-		String fileExtension = fileName.substring(fileName.lastIndexOf('.'), fileName.length());
-		fileExtension = fileExtension.trim();
+		System.out.println("File Name " + fileName);
+		String fileExtension = "";
+		if (!fileName.isEmpty()) {
+			fileExtension= fileName.substring(fileName.lastIndexOf('.'), fileName.length());
+			fileExtension = fileExtension.trim();	
+		}
+
 		return fileExtension;
 	}
 }
