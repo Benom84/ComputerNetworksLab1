@@ -47,11 +47,11 @@ public class ClientRequest {
             //PrintStream PS = new PrintStream(socket.getOutputStream());
             //PS.println("HEAD / HTTP/1.0");
             if (requestType.equals(headRequest)) {
-                socketOutputStream.writeBytes(headRequest + location + " HTTP/1.0" + CRLF);
+                socketOutputStream.writeBytes(headRequest + location + " HTTP/1.1" + CRLF);
                 socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
                 socketOutputStream.flush();
             } else if (requestType.equals(getRequest)) {
-                socketOutputStream.writeBytes("GET " + location + " HTTP/1.0" + CRLF);
+                socketOutputStream.writeBytes("GET " + location + " HTTP/1.1" + CRLF);
                 socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
                 socketOutputStream.flush();
             }

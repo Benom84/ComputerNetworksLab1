@@ -56,6 +56,11 @@ public class Downloader implements Runnable {
 			// Check the response
 			String response = clientRequest.getResponseStatusCode(); 
 			if (response.equals("200")) {
+				System.out.println("In response header:");
+				for (String string : clientRequest.responseHeaderFields.keySet()) {
+					System.out.println("Key: " + string + " Value: " +  clientRequest.responseHeaderFields.get(string));
+				}
+				System.out.println("Content-Length: " + clientRequest.responseHeaderFields.get("Content-Length"));
 				int sizeOfFile = Integer.parseInt(clientRequest.responseHeaderFields.get("Content-Length"));
 
 				// If it was an HTML Page

@@ -30,7 +30,9 @@ public class Crawler implements Runnable {
 	private static List<String> imageExtensionsList;
 	private static List<String> videoExtensionsList;
 	private static List<String> documentExtensionsList;
+	protected Set<String> crawledDomains;
 	protected SynchronizedSet<String> pagesVisited;
+	protected SynchronizedSet<String> externalDomains;
 	private SynchronizedQueue<String> urlsToDownload;
 	private SynchronizedQueue<String> htmlToAnalyze;
 	private SynchronizedSet<String> forbiddenPages;
@@ -53,6 +55,9 @@ public class Crawler implements Runnable {
 	private String startDate;
 	private String startTime;
 	private String rootDir;
+	private int internalLinks;
+	private int externalLinks;
+	private String averageRTT;
 	private static final String resultsFolder = "\\ScanResults\\";
 	private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
@@ -67,6 +72,8 @@ public class Crawler implements Runnable {
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
 
 		rootDir = crawlerConfiguration.get(rootKey);
+		System.out.println("ROOT DIR IS: " + rootDir);
+		createResultsFolder();
 		maxDownloaders = Integer.parseInt(crawlerConfiguration.get(maxDownloadersKey));
 		maxAnalyzers = Integer.parseInt(crawlerConfiguration.get(maxAnalyzersKey));
 		imageExtensionsList = stringToList(crawlerConfiguration.get(imageExtensionsKey));
@@ -83,6 +90,13 @@ public class Crawler implements Runnable {
 		System.out.println("Image Extensions: " + Arrays.toString(imageExtensionsList.toArray()));
 		System.out.println("Video Extensions: " + Arrays.toString(videoExtensionsList.toArray()));
 		System.out.println("Document Extensions: " + Arrays.toString(documentExtensionsList.toArray()));
+	}
+
+	private void createResultsFolder() {
+		File resultsFolderFile = new File(rootDir + resultsFolder);
+		if (!resultsFolderFile.exists()) {
+			resultsFolderFile.mkdirs();
+		}
 	}
 
 	private List<String> stringToList(String listAsString) {
@@ -104,8 +118,12 @@ public class Crawler implements Runnable {
 		}
 
 		this.targetURL = targetURL;
+		if (this.targetURL.charAt(this.targetURL.length() - 1) == '\\') {
+			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
+		}
 		this.ignoreRobots = ignoreRobots;
 		this.performPortScan = performPortScan;
+		this.externalDomains = new SynchronizedSet<>();
 		return true;
 	}
 
@@ -123,6 +141,7 @@ public class Crawler implements Runnable {
 					return;
 				}
 				initStatistics();
+				readCrawledDomains();
 				isCrawlerRunning = true;
 				System.out.println("************* Started Crawler *****************");
 				DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd");
@@ -215,14 +234,58 @@ public class Crawler implements Runnable {
 	}
 
 
+	private void readCrawledDomains() {
+		crawledDomains = new HashSet<>();
+		File resultsPath = new File(rootDir + resultsFolder);
+		if (resultsPath.exists() && resultsPath.isDirectory()) {
+			File[] resultsFiles = resultsPath.listFiles();
+			for (File resultFile : resultsFiles) {
+				String resultFileName = resultFile.getName();
+				resultFileName = resultFileName.substring(0, resultFileName.length() - 25);
+				System.out.println("Result File found for domain: " + resultFileName);
+				crawledDomains.add(resultFileName);
+			}
+		}
+		
+	}
+
 	private void createResultPage() {
-		// TODO Auto-generated method stub
 		String resultPageName = targetURL + "_" + startDate + "_" + startTime + ".html";
 		String resultPath = rootDir + resultsFolder + resultPageName;
 		try (Writer writer = new BufferedWriter(new OutputStreamWriter(
 				new FileOutputStream(resultPath), "utf-8"))) {
-			writer.write(portScanResults);
-
+			writer.write("<!DOCTYPE html><html><head lang=\"en\"><meta charset=\"UTF-8\"><title>");
+			writer.write(targetURL + " " + startDate + " " + startTime);
+			writer.write("</title></head><body><h1>" + targetURL + " " + startDate + " " + startTime + "</h1><table>");
+			writer.write("<tr><td>Was Robots file respected?</td><td>" + !ignoreRobots + "</td></tr>");
+			writer.write("<tr><td>Category</td><td>Number</td><td>Size</td></tr>");
+			writer.write("<tr><td>Images</td><td>" + imageFiles.getNumberOfFiles() + "</td><td>" + imageFiles.getSizeOfFiles() + "</td></tr>");
+			writer.write("<tr><td>Videos</td><td>" + videoFiles.getNumberOfFiles() + "</td><td>" + videoFiles.getSizeOfFiles() + "</td></tr>");
+			writer.write("<tr><td>Documents</td><td>" + documentFiles.getNumberOfFiles() + "</td><td>" + documentFiles.getSizeOfFiles() + "</td></tr>");
+			writer.write("<tr><td>Pages</td><td>" + pagesFiles.getNumberOfFiles() + "</td><td>" + pagesFiles.getSizeOfFiles() + "</td></tr>");
+			writer.write("</table>");
+			writer.write("<h2>Number of Internal Links: " + internalLinks + "</h2>");
+			writer.write("<h2>Number of External Links: " + externalLinks + "</h2>");
+			writer.write("<h2>Number of External Domains: " + externalDomains.size() + "</h2>");
+			writer.write("<h2>The Domains connected:</h2>");
+			writer.write("<ul>");
+			for (String externalDomain : externalDomains) {
+				if (crawledDomains.contains(externalDomain)) {
+					writer.write("<li><a href=\""+ externalDomain + "\">" + externalDomain + "</a>" + externalDomain + "</li>");
+				} else {
+					writer.write("<li>" + externalDomain + "</li>");
+				}
+				
+			}
+			writer.write("</ul>");
+			if (performPortScan) {
+				writer.write("<h2>" + portScanResults + "</h2>");	
+			}
+			writer.write("<h2>Average RTT: " + averageRTT + "</h2>");
+			writer.write("<h3><a href = \"/\">Back To Main Page</a></h3>");
+			writer.write("</body></html>");
+			
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

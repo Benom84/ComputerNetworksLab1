@@ -133,6 +133,7 @@ public class WebServer {
 	private static HashMap<String, String> createCrawlerConfiguration(HashMap<String, String> configuration) {
 		
 		HashMap<String, String> crawlerConfiguration = new HashMap<String, String>();
+		crawlerConfiguration.put(rootKey, configuration.get(rootKey));
 		crawlerConfiguration.put(maxDownloadersKey, configuration.get(maxDownloadersKey));
 		crawlerConfiguration.put(maxAnalyzersKey, configuration.get(maxAnalyzersKey));
 		crawlerConfiguration.put(imageExtensionsKey, configuration.get(imageExtensionsKey));
