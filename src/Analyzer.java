@@ -5,21 +5,21 @@ import java.util.regex.Pattern;
 
 
 public class Analyzer implements Runnable {
-	
+
 	private Crawler parentCrawler;
-	
+
 	public Analyzer(Crawler crawler) {
-		
+
 		parentCrawler = crawler;
-		
+
 	}
 
 	@Override
 	public void run() {
-		
-		String currentHtmlToParse;
+
+		HTMLContent currentHtmlToParse;
 		while (true) {
-			
+
 			try {
 				currentHtmlToParse = parentCrawler.nextHtmlToAnalyze();
 				parentCrawler.AdjustWorkingThreadCount(1);
@@ -27,32 +27,65 @@ public class Analyzer implements Runnable {
 				e.printStackTrace();
 				continue;
 			}
-			
-			Set<String> allLinksInHtml = getLinkesFromHtml(currentHtmlToParse);
+
+			if (currentHtmlToParse == null) {
+				parentCrawler.AdjustWorkingThreadCount(-1);
+				return;
+			}
+			Set<String> allLinksInHtml = getLinksFromHtml(currentHtmlToParse.GetHTML());
 			for (String currentLink : allLinksInHtml) {
 				try {
-					parentCrawler.addUrlToDownload(currentLink);
+					if (isURLRelative(currentLink)) {
+						parentCrawler.addUrlToDownload(currentHtmlToParse.GetSource() + currentLink);	
+					}
+					else {
+						if (isPartOfHost(currentLink)) {
+							parentCrawler.addUrlToDownload(currentLink);
+							parentCrawler.addUrlToInternal(currentLink);
+						} else {
+							parentCrawler.addURLToExternal(currentLink);
+						}
+
+					}
+
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
 			parentCrawler.AdjustWorkingThreadCount(-1);
-			
+
 		}
-		
+
 	}
-	
-	public Set<String> getLinkesFromHtml(String HTMLPage){
 
-        Pattern linkPattern = Pattern.compile("href=\\'.*?(http:\\/\\/)*(.*?)\\'",  Pattern.CASE_INSENSITIVE|Pattern.DOTALL);
-        Matcher pageMatcher = linkPattern.matcher(HTMLPage);
-        Set<String> links = new HashSet<>();
-        while(pageMatcher.find()){
-            links.add(pageMatcher.group(2));
-            System.out.println(pageMatcher.group(2));
-        }
+	private boolean isPartOfHost(String currentLink) {
+		Pattern domainPattern = Pattern.compile("(.*\\.)?("+ parentCrawler.targetURL + ").*");
+		Matcher matcher = domainPattern.matcher(currentLink);
+		if (matcher.find()) {
+			return true; 
+		} else {
+			return false;
+		}
 
-        return links;
-    }
+	}
+
+	public Set<String> getLinksFromHtml(String HTMLPage){
+
+		//System.out.println("Analyzer is parsing: " + HTMLPage);
+		Pattern linkPattern = Pattern.compile("href=\".*?(http:\\/\\/)*(.*?)\"",  Pattern.CASE_INSENSITIVE|Pattern.DOTALL);
+		Matcher pageMatcher = linkPattern.matcher(HTMLPage);
+		Set<String> links = new HashSet<>();
+		while(pageMatcher.find()){
+			links.add(pageMatcher.group(2));
+			System.out.println("Link from analyzer: " + pageMatcher.group(2));
+		}
+
+		return links;
+	}
+
+	private boolean isURLRelative(String url) {
+
+		return url.substring(0, 1).equalsIgnoreCase("/");
+	}
 
 }

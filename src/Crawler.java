@@ -33,19 +33,19 @@ public class Crawler implements Runnable {
 	protected Set<String> crawledDomains;
 	protected SynchronizedSet<String> pagesVisited;
 	protected SynchronizedSet<String> externalDomains;
+	private SynchronizedSet<String> internalLinks;
+	private SynchronizedSet<String> externalLinks;
 	private SynchronizedQueue<String> urlsToDownload;
-	private SynchronizedQueue<String> htmlToAnalyze;
+	private SynchronizedQueue<HTMLContent> htmlToAnalyze;
 	private SynchronizedSet<String> forbiddenPages;
 	private TypeStatistics imageFiles;
 	private TypeStatistics videoFiles;
 	private TypeStatistics documentFiles;
 	private TypeStatistics pagesFiles;
-	private String targetURL;
+	protected String targetURL;
 	private boolean ignoreRobots;
 	private boolean performPortScan;
 	// Links from the same domain
-	private int numberOfInternalLinks;
-	private int numberOfExternalLinks;
 	private Thread[] downloaderThreads;
 	private Thread[] analyzerThreads;
 	private Boolean isCrawlerRunning = false;
@@ -55,11 +55,12 @@ public class Crawler implements Runnable {
 	private String startDate;
 	private String startTime;
 	private String rootDir;
-	private int internalLinks;
-	private int externalLinks;
-	private String averageRTT;
+
+	private int requestCount;
+	private Float sumOfRTT;
 	private static final String resultsFolder = "\\ScanResults\\";
-	private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
+	//private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
+	private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
 
 
 	public static void main(String[] args) throws IOException {
@@ -117,7 +118,8 @@ public class Crawler implements Runnable {
 			return false;
 		}
 
-		this.targetURL = targetURL;
+		this.targetURL = pasrseURL(targetURL);
+		
 		if (this.targetURL.charAt(this.targetURL.length() - 1) == '\\') {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
 		}
@@ -127,8 +129,37 @@ public class Crawler implements Runnable {
 		return true;
 	}
 
+	private String pasrseURL(String url) {
+		String parsedURL = "";
+		
+		try {
+            Matcher matcher = urlPattern.matcher(url);
+            if (matcher.find()) {
+
+            	parsedURL = matcher.group(3);
+        		int indexOfFirstSlash = parsedURL.indexOf('/');
+        		if (indexOfFirstSlash > 0) {
+        			parsedURL = parsedURL.substring(0, indexOfFirstSlash);
+        		}
+                System.out.println("Host is: " + parsedURL);
+            }
+            
+        } catch(Exception e){
+            System.out.println("Failed to parse the Url: " + url);
+        }
+		
+		return parsedURL;
+	}
+
 	public boolean isBusy() {
 		return isCrawlerRunning;
+	}
+	
+	public void addRTT(float currentRTT) {
+		synchronized (sumOfRTT) {
+			sumOfRTT += currentRTT;
+			requestCount++;
+		}
 	}
 
 	public void run() {
@@ -207,12 +238,13 @@ public class Crawler implements Runnable {
 			}
 
 			// If (the threads are active or the queues are not empty) and we didn't exceed the pages to visit
-			while ((!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty() || workingThreads > 0) && 
+			while ((GetWorkingThreadsCount() > 0) && 
 					(pagesVisited.size() < MAX_PAGES_TO_SEARCH)) {
 				
 			}
 
-			System.out.println("Crawler is ending");
+			System.out.println("Crawler is ending toDownload empty: " + urlsToDownload.isEmpty() + " toAnalyze empty: " + htmlToAnalyze.isEmpty() + " Working Threads: " + workingThreads + 
+					"Pages visited: " + pagesVisited.size() );
 			try {
 				for (int i = 0; i < analyzerThreads.length; i++) {
 
@@ -252,6 +284,7 @@ public class Crawler implements Runnable {
 	private void createResultPage() {
 		String resultPageName = targetURL + "_" + startDate + "_" + startTime + ".html";
 		String resultPath = rootDir + resultsFolder + resultPageName;
+		float averageRTT = sumOfRTT / requestCount;
 		try (Writer writer = new BufferedWriter(new OutputStreamWriter(
 				new FileOutputStream(resultPath), "utf-8"))) {
 			writer.write("<!DOCTYPE html><html><head lang=\"en\"><meta charset=\"UTF-8\"><title>");
@@ -297,6 +330,14 @@ public class Crawler implements Runnable {
 			workingThreads = workingThreads + num;
 		}
 	}
+	
+	protected int GetWorkingThreadsCount() {
+		int result;
+		synchronized (workingThreads) {
+			result = workingThreads;
+		}
+		return result;
+	}
 
 	private SynchronizedSet<String> readRobotsFile(String targetURL) throws IOException {
 
@@ -306,21 +347,25 @@ public class Crawler implements Runnable {
 		//Document document = connection.get();
 		//System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
 		if (connection.getResponseStatusCode().equals("200")) {
-			String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
-			//System.out.println(forbiddenUrls.length);
-			for (String url : forbiddenUrls) {
-				if (url.contains("Disallow")) {
-					int startOfSubStringIndex = url.indexOf(" ");
-					String urlToForbiddenList = url.substring(startOfSubStringIndex + 1, url.length());
-					System.out.println("Got the URL (From robots.txt): " + urlToForbiddenList);
-					try {
-						result.add(urlToForbiddenList);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+			if (connection.getBody() != null) {
+				String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
+				for (String url : forbiddenUrls) {
+					if (url.contains("Disallow")) {
+						int startOfSubStringIndex = url.indexOf(" ");
+						String urlToForbiddenList = url.substring(startOfSubStringIndex + 1, url.length());
+						System.out.println("Got the URL (From robots.txt): " + urlToForbiddenList);
+						try {
+							result.add(urlToForbiddenList);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
 					}
 				}
 			}
+			
+			//System.out.println(forbiddenUrls.length);
+			
 		}
 		return result;
 	}
@@ -336,13 +381,15 @@ public class Crawler implements Runnable {
 				Socket socket = new Socket();
 				socket.connect(new InetSocketAddress(targetURL, port), 100);
 				sb.append(port + " ");
-				System.out.println("Port number: " + port);
+				System.out.println(port + ", ");
 				socket.close();
 			} catch (Exception e) {
-				sb.append("Port " + port + " is closed.\n");
+				
 			}
 
 		}
+		sb.deleteCharAt(sb.length() - 1);
+		sb.deleteCharAt(sb.length() - 1);
 		System.out.println("Ending port scan");
 		return sb.toString();
 	}
@@ -352,9 +399,11 @@ public class Crawler implements Runnable {
 
 		pagesVisited = new SynchronizedSet<String>();
 		urlsToDownload = new SynchronizedQueue<String>();
-		htmlToAnalyze = new SynchronizedQueue<String>();
-		numberOfInternalLinks = 0;
-		numberOfExternalLinks = 0;
+		htmlToAnalyze = new SynchronizedQueue<HTMLContent>();
+		internalLinks = new SynchronizedSet<>();
+		externalLinks = new SynchronizedSet<>();
+		sumOfRTT = 0f;
+		requestCount = 0;
 		imageFiles.init();
 		videoFiles.init();
 		documentFiles.init();
@@ -442,12 +491,15 @@ public class Crawler implements Runnable {
 		return false;
 	}
 
-	protected String nextHtmlToAnalyze() throws InterruptedException {
-		return htmlToAnalyze.take();
+	protected HTMLContent nextHtmlToAnalyze() throws InterruptedException {
+		System.out.println("Crawler: Requested next html to analyze");
+		HTMLContent result = htmlToAnalyze.take();
+		//System.out.println("Crawler: next html to analyze is: " + result);
+		return result;
 	}
 
-	protected void addHtmlToAnalyze(String htmlBody) throws InterruptedException {
-		htmlToAnalyze.put(htmlBody);
+	protected void addHtmlToAnalyze(String htmlBody, String source) throws InterruptedException {
+		htmlToAnalyze.put(new HTMLContent(htmlBody, source));
 	}
 
 	protected void updateImages(int numberOfImages, int sizeOfImages) {
@@ -509,5 +561,25 @@ public class Crawler implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+
+	public void addUrlToInternal(String currentLink) {
+		try {
+			internalLinks.add(currentLink);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+
+	public void addURLToExternal(String currentLink) {
+		try {
+			externalLinks.add(currentLink);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 	}
 }

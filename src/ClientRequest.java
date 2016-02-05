@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -18,7 +19,7 @@ public class ClientRequest {
     final static String CRLF = "\r\n";
     private String headers;
     private String body;
-    private String host;
+    public String host;
     private String location;
     private String requestType;
 
@@ -29,6 +30,7 @@ public class ClientRequest {
     private String responseStatusCode;
     private String responseHttpVersion;
     private String[] parsedRequest;
+	//private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public ClientRequest(String url, String requestType) throws IOException {
@@ -57,14 +59,59 @@ public class ClientRequest {
             }
 
             InputStreamReader IR = new InputStreamReader(socket.getInputStream());
-            BufferedReader BR = new BufferedReader(IR);
-            String line = BR.readLine();
-            StringBuilder response = new StringBuilder();
-            while (line != null) {
-                response.append(line + System.lineSeparator());
-                line = BR.readLine();
+            
+            char[] buffer = new char[1024];
+            int indexOfBuffer = 0;
+            StringBuilder HeaderResponse = new StringBuilder();
+            System.out.println("1");
+            
+            //Read Header
+            indexOfBuffer = IR.read();
+            while (indexOfBuffer > 0) {
+            	HeaderResponse.append((char)indexOfBuffer);
+            	if (HeaderResponse.toString().endsWith(CRLF + CRLF)) {
+            		break;
+            	}
+            	//System.out.println("Index of buffer: " + indexOfBuffer);
+            	indexOfBuffer = IR.read();
+            	//System.out.println("Index of buffer2: " + indexOfBuffer);
             }
-            if (requestType.equals(headRequest)) {
+            System.out.println("Finished reading header");
+            System.out.println(HeaderResponse.toString());
+            parseResponse(HeaderResponse.toString());
+            
+            // Read Body
+            StringBuilder BodyResponse = new StringBuilder();
+            int contentLength = 0;
+            if (responseHeaderFields.containsKey("Content-Length")) {
+            	contentLength = Integer.parseInt(responseHeaderFields.get("Content-Length"));
+            	System.out.println("ContentLength is: " + contentLength);
+            	body = "";
+                if (contentLength > 0) {
+                	byte[] data = new byte[contentLength];
+                	DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+                	dataInputStream.readFully(data, 0, contentLength);
+                	BodyResponse.append(Arrays.toString(data));
+                	body = BodyResponse.toString();
+                	System.out.println("Finished reading body");
+                }
+            } else {
+            	indexOfBuffer = IR.read(buffer);
+                while (indexOfBuffer > 0) {
+                	BodyResponse.append(buffer, 0 ,indexOfBuffer);
+                	if (BodyResponse.toString().endsWith(CRLF + CRLF)) {
+                		break;
+                	}
+                	//System.out.println("Index of buffer3: " + indexOfBuffer);
+                	indexOfBuffer = IR.read(buffer);
+                	//System.out.println("Index of buffer4: " + indexOfBuffer);
+                }
+                body = BodyResponse.toString();
+                responseHeaderFields.put("Content-Length","" + body.length());
+            }
+            
+            System.out.println("6");
+            /*if (requestType.equals(headRequest)) {
                 headers = response.toString();
                 body = null;
             } else if (requestType.equals(getRequest)) {
@@ -74,7 +121,7 @@ public class ClientRequest {
                 if (splitResponse.length > 1)
                 	body = splitResponse[1];
             }
-            parseResponse(headers);
+            parseResponse(headers);*/
         }catch (Exception e){
             System.out.println("Failed to connect to " + url);
             e.printStackTrace();
@@ -121,18 +168,26 @@ public class ClientRequest {
         //Group(2) is www.
         //Group(3) is host
         //Group(4) is location
+    	System.out.println("Parse URL in Client request " + this.toString() + " got1: " + url);
         try {
             Matcher matcher = urlPattern.matcher(url);
             if (matcher.find()) {
-
-                this.host = matcher.group(3);
+            	
+                if (matcher.group(2) == null) {
+                	this.host = matcher.group(3);
+                } else {
+                	this.host = matcher.group(2) + matcher.group(3);	
+                }
+            	
+                System.out.println("Parse URL in Client request host: " + host);
 
                 if (matcher.group(4) == "null") {
                     this.location = "//";
                 } else {
                     this.location = matcher.group(4);
+                    
                 }
-
+                System.out.println("Parse URL in Client request location: " + location);
                 //System.out.println("Host is: " + host + CRLF + "Location is: " + location);
             }else{
                 if(!url.endsWith("/")){

@@ -21,6 +21,7 @@ public class Downloader implements Runnable {
 		List<String> videoExtensions = parentCrawler.getVideoExtensions();
 		while (true) {
 			ClientRequest clientRequest = null;
+			urlToDownload = null;
 			// Get url from parent
 			try {
 				if (parentCrawler.pagesVisited.size() < Crawler.MAX_PAGES_TO_SEARCH) {
@@ -36,7 +37,13 @@ public class Downloader implements Runnable {
 				e1.printStackTrace();
 				continue;
 			}
+			if (urlToDownload == null) {
+				System.out.println("URL TO DOWNLOAD WAS NULL");
+				parentCrawler.AdjustWorkingThreadCount(-1);
+				return;
+			}
 			fileType = getFileTypeFromURL(urlToDownload);
+			System.out.println("File type is: " + fileType);
 			if (fileType.isEmpty() || fileType.equalsIgnoreCase("html") || fileType.equalsIgnoreCase("htm")) {
 				System.out.println("Creating client request of type get");
 				requestType = ClientRequest.getRequest;
@@ -61,12 +68,16 @@ public class Downloader implements Runnable {
 					System.out.println("Key: " + string + " Value: " +  clientRequest.responseHeaderFields.get(string));
 				}
 				System.out.println("Content-Length: " + clientRequest.responseHeaderFields.get("Content-Length"));
-				int sizeOfFile = Integer.parseInt(clientRequest.responseHeaderFields.get("Content-Length"));
-
+				int sizeOfFile = 0; 
+				if (clientRequest.responseHeaderFields.containsKey(("Content-Length"))) {
+					sizeOfFile = Integer.parseInt(clientRequest.responseHeaderFields.get("Content-Length"));	
+				}
+				
+				
 				// If it was an HTML Page
 				if (requestType.trim().equalsIgnoreCase("get")) {
 					try {
-						parentCrawler.addHtmlToAnalyze(clientRequest.getBody());
+						parentCrawler.addHtmlToAnalyze(clientRequest.getBody(), clientRequest.host);
 						parentCrawler.updatePages(1, sizeOfFile);
 						parentCrawler.UpdatePagesVisited(urlToDownload);
 					} catch (InterruptedException e) {
@@ -88,7 +99,14 @@ public class Downloader implements Runnable {
 				String newURL = clientRequest.responseHeaderFields.get("Location");
 				System.out.println("The request returned moved to location: " + newURL);
 				try {
-					boolean isUrlAdded = parentCrawler.addUrlToDownload(newURL);
+					boolean isURLFullHTTPResult = isURLFullHTTP(newURL); 
+					boolean isUrlAdded = false;
+					if (isURLFullHTTPResult) {
+						isUrlAdded = parentCrawler.addUrlToDownload(newURL);
+					} else {
+						isUrlAdded = parentCrawler.addUrlToDownload(clientRequest.host + newURL);
+					}
+					
 					System.out.println(newURL + " added to download queue? " + isUrlAdded);
 				} catch (InterruptedException e) {
 					System.out.println("Error adding new url after 302: " + newURL);
@@ -105,6 +123,13 @@ public class Downloader implements Runnable {
 		
 	}
 
+	private boolean isURLFullHTTP(String newURL) {
+		
+		String startOfURL = newURL.substring(0, 4);
+		System.out.println(startOfURL);
+		return newURL.substring(0, 4).equalsIgnoreCase("http");
+	}
+
 	private String getFileTypeFromURL(String urlToDownload) {
 
 		System.out.println("Url: " + urlToDownload);
@@ -114,7 +139,7 @@ public class Downloader implements Runnable {
 		System.out.println("File Name " + fileName);
 		String fileExtension = "";
 		if (!fileName.isEmpty()) {
-			fileExtension= fileName.substring(fileName.lastIndexOf('.'), fileName.length());
+			fileExtension= fileName.substring(fileName.lastIndexOf('.') + 1, fileName.length());
 			fileExtension = fileExtension.trim();	
 		}
 
