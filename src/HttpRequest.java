@@ -173,8 +173,6 @@ final class HttpRequest implements Runnable
 					boolean ignoreRobots = false;
 					boolean performPortScan = false;
 
-					domain = "www.ynet.co.il";
-
 					if(htmlRequest.parametersInRequestBody.containsKey("portscan")){
 						performPortScan = true;
 					}

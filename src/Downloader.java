@@ -87,6 +87,9 @@ public class Downloader implements Runnable {
 			if (requestType.trim().equalsIgnoreCase("get")) {
 				try {
 					parentCrawler.addHtmlToAnalyze(clientRequest.getBody(), clientRequest.host);
+					if (sizeOfFile == 0) {
+						sizeOfFile = clientRequest.getBody().length();
+					}
 					parentCrawler.updatePages(1, sizeOfFile);
 					parentCrawler.UpdatePagesVisited(urlToDownload);
 				} catch (InterruptedException e) {

@@ -244,7 +244,7 @@ public class Crawler implements Runnable {
 			// If (the threads are active or the queues are not empty) and we didn't exceed the pages to visit
 			// TODO remove MAX_PAGES
 			while ((pagesVisited.size() < MAX_PAGES_TO_SEARCH) && (!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty() || 
-					!workingDownloaderThreadNumbers.isEmpty() || !workingAnalyzerThreadNumbers.isEmpty())) 
+					(getWorkingDownloadersNumber() > 0) || (getWorkingAnalyzersNumber() > 0))) 
 			{
 				synchronized (workingAnalyzerThreadNumbers) {
 					while (workingAnalyzerThreadNumbers.size() < maxAnalyzers) {
@@ -318,6 +318,22 @@ public class Crawler implements Runnable {
 			result = urlsToDownload.isEmpty();
 		}
 
+		return result;
+	}
+	
+	private int getWorkingAnalyzersNumber() {
+		int result = 0;
+		synchronized (workingAnalyzerThreadNumbers) {
+			result = workingAnalyzerThreadNumbers.size();
+		}
+		return result;
+	}
+	
+	private int getWorkingDownloadersNumber() {
+		int result = 0;
+		synchronized (workingDownloaderThreadNumbers) {
+			result = workingDownloaderThreadNumbers.size();
+		}
 		return result;
 	}
 
