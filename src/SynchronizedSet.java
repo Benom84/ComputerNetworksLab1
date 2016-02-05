@@ -40,7 +40,7 @@ public class SynchronizedSet<T> implements Iterable<T>{
 		return set.size();
 	}
 
-	public synchronized boolean contains(String item) {
+	public synchronized boolean contains(T item) {
 		
 		return set.contains(item);
 	}

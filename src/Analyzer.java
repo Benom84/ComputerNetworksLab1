@@ -7,54 +7,64 @@ import java.util.regex.Pattern;
 public class Analyzer implements Runnable {
 
 	private Crawler parentCrawler;
+	private int threadNumber;
+	private Boolean running;
+	private HTMLContent htmlContent;
 
-	public Analyzer(Crawler crawler) {
+	public Analyzer(Crawler crawler, int threadNumber) {
 
 		parentCrawler = crawler;
-
+		this.threadNumber = threadNumber;
 	}
 
 	@Override
-	public void run() {
-
-		HTMLContent currentHtmlToParse;
-		while (true) {
-
-			try {
-				currentHtmlToParse = parentCrawler.nextHtmlToAnalyze();
-				parentCrawler.AdjustWorkingThreadCount(1);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-				continue;
-			}
-
-			if (currentHtmlToParse == null) {
-				parentCrawler.AdjustWorkingThreadCount(-1);
-				return;
-			}
-			Set<String> allLinksInHtml = getLinksFromHtml(currentHtmlToParse.GetHTML());
-			for (String currentLink : allLinksInHtml) {
+	public void run() { 
+		running = true;
+		while (running) {
+			synchronized (running) {
+				htmlContent = null;
 				try {
-					if (isURLRelative(currentLink)) {
-						parentCrawler.addUrlToDownload(currentHtmlToParse.GetSource() + currentLink);	
+					running.wait();
+					if (htmlContent != null) {
+						parseHtml();
 					}
-					else {
-						if (isPartOfHost(currentLink)) {
-							parentCrawler.addUrlToDownload(currentLink);
-							parentCrawler.addUrlToInternal(currentLink);
-						} else {
-							parentCrawler.addURLToExternal(currentLink);
-						}
-
-					}
-
 				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}
-			parentCrawler.AdjustWorkingThreadCount(-1);
-
+			}	
 		}
+
+	}
+
+	private void parseHtml() {
+
+		HTMLContent currentHtmlToParse = htmlContent;
+
+		Set<String> allLinksInHtml = getLinksFromHtml(currentHtmlToParse.GetHTML());
+		for (String currentLink : allLinksInHtml) {
+			try {
+				if (isURLRelative(currentLink)) {
+					parentCrawler.addUrlToDownload(currentHtmlToParse.GetSource() + currentLink);	
+				}
+				else {
+					if (isPartOfHost(currentLink)) {
+						parentCrawler.addUrlToDownload(currentLink);
+						parentCrawler.addUrlToInternal(currentLink);
+					} else {
+						parentCrawler.addURLToExternal(currentLink);
+					}
+
+				}
+
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		htmlContent = null;
+		parentCrawler.RemoveAnalyzerFromWorking(threadNumber);
+
 
 	}
 
@@ -86,6 +96,14 @@ public class Analyzer implements Runnable {
 	private boolean isURLRelative(String url) {
 
 		return url.substring(0, 1).equalsIgnoreCase("/");
+	}
+
+	public void SetHTML(HTMLContent htmlContent) {
+		synchronized (running) {
+			this.htmlContent = htmlContent;
+			running.notifyAll();
+		}
+
 	}
 
 }

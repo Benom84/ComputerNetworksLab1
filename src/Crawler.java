@@ -38,6 +38,8 @@ public class Crawler implements Runnable {
 	private SynchronizedQueue<String> urlsToDownload;
 	private SynchronizedQueue<HTMLContent> htmlToAnalyze;
 	private SynchronizedSet<String> forbiddenPages;
+	SynchronizedSet<Integer> workingDownloaderThreadNumbers;
+	SynchronizedSet<Integer> workingAnalyzerThreadNumbers; 
 	private TypeStatistics imageFiles;
 	private TypeStatistics videoFiles;
 	private TypeStatistics documentFiles;
@@ -46,8 +48,6 @@ public class Crawler implements Runnable {
 	private boolean ignoreRobots;
 	private boolean performPortScan;
 	// Links from the same domain
-	private Thread[] downloaderThreads;
-	private Thread[] analyzerThreads;
 	private Boolean isCrawlerRunning = false;
 	private String portScanResults;
 	private String allowedHost;
@@ -59,6 +59,7 @@ public class Crawler implements Runnable {
 	private int requestCount;
 	private Float sumOfRTT;
 	private static final String resultsFolder = "\\ScanResults\\";
+	private Object workingThreadsKey;
 	//private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 	private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
 
@@ -119,7 +120,7 @@ public class Crawler implements Runnable {
 		}
 
 		this.targetURL = pasrseURL(targetURL);
-		
+
 		if (this.targetURL.charAt(this.targetURL.length() - 1) == '\\') {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
 		}
@@ -131,30 +132,30 @@ public class Crawler implements Runnable {
 
 	private String pasrseURL(String url) {
 		String parsedURL = "";
-		
-		try {
-            Matcher matcher = urlPattern.matcher(url);
-            if (matcher.find()) {
 
-            	parsedURL = matcher.group(3);
-        		int indexOfFirstSlash = parsedURL.indexOf('/');
-        		if (indexOfFirstSlash > 0) {
-        			parsedURL = parsedURL.substring(0, indexOfFirstSlash);
-        		}
-                System.out.println("Host is: " + parsedURL);
-            }
-            
-        } catch(Exception e){
-            System.out.println("Failed to parse the Url: " + url);
-        }
-		
+		try {
+			Matcher matcher = urlPattern.matcher(url);
+			if (matcher.find()) {
+
+				parsedURL = matcher.group(3);
+				int indexOfFirstSlash = parsedURL.indexOf('/');
+				if (indexOfFirstSlash > 0) {
+					parsedURL = parsedURL.substring(0, indexOfFirstSlash);
+				}
+				System.out.println("Host is: " + parsedURL);
+			}
+
+		} catch(Exception e){
+			System.out.println("Failed to parse the Url: " + url);
+		}
+
 		return parsedURL;
 	}
 
 	public boolean isBusy() {
 		return isCrawlerRunning;
 	}
-	
+
 	public void addRTT(float currentRTT) {
 		synchronized (sumOfRTT) {
 			sumOfRTT += currentRTT;
@@ -219,50 +220,142 @@ public class Crawler implements Runnable {
 				e.printStackTrace();
 			}
 
-			downloaderThreads = new Thread[maxDownloaders - 1];
-			analyzerThreads = new Thread[maxAnalyzers - 1];
-			for (int i = 0; i < analyzerThreads.length; i++) {
-				analyzerThreads[i] = new Thread(new Analyzer(this));
-			}
-			for (int i = 0; i < downloaderThreads.length; i++) {
-				downloaderThreads[i] = new Thread(new Downloader(this));
+			Downloader[] downloaders = new Downloader[maxDownloaders];
+			Analyzer[] analyzers = new Analyzer[maxAnalyzers];
+			Thread[] downloaderWaitingThreads = new Thread[maxDownloaders];
+			Thread[] analyzerWaitingThreads = new Thread[maxAnalyzers];
+			workingDownloaderThreadNumbers = new SynchronizedSet<>();
+			workingAnalyzerThreadNumbers = new SynchronizedSet<>();
+
+			for (int i = 0; i < analyzers.length; i++) {
+				analyzers[i] = new Analyzer(this, i);
+				analyzerWaitingThreads[i] = new Thread(analyzers[i]);
+				analyzerWaitingThreads[i].start();
 			}
 
-			workingThreads = 0;
+			for (int i = 0; i < downloaders.length; i++) {
+				downloaders[i] = new Downloader(this, i);
+				downloaderWaitingThreads[i] = new Thread(downloaders[i]);
+				downloaderWaitingThreads[i].start();
+			}
 
-			for (int i = 0; i < analyzerThreads.length; i++) {
-				analyzerThreads[i].start();
-			}
-			for (int i = 0; i < downloaderThreads.length; i++) {
-				downloaderThreads[i].start();
-			}
+
 
 			// If (the threads are active or the queues are not empty) and we didn't exceed the pages to visit
-			while ((GetWorkingThreadsCount() > 0) && 
-					(pagesVisited.size() < MAX_PAGES_TO_SEARCH)) {
-				
-			}
-
-			System.out.println("Crawler is ending toDownload empty: " + urlsToDownload.isEmpty() + " toAnalyze empty: " + htmlToAnalyze.isEmpty() + " Working Threads: " + workingThreads + 
-					"Pages visited: " + pagesVisited.size() );
-			try {
-				for (int i = 0; i < analyzerThreads.length; i++) {
-
-					analyzerThreads[i].join(100);;
-
+			// TODO remove MAX_PAGES
+			while ((pagesVisited.size() < MAX_PAGES_TO_SEARCH) && (!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty() || 
+					!workingDownloaderThreadNumbers.isEmpty() || !workingAnalyzerThreadNumbers.isEmpty())) 
+			{
+				synchronized (workingAnalyzerThreadNumbers) {
+					while (workingAnalyzerThreadNumbers.size() < maxAnalyzers) {
+						if (!htmlToAnalyze.isEmpty()) {
+							try {
+								HTMLContent htmlContent = htmlToAnalyze.take();
+								for (int i = 0; i < analyzerWaitingThreads.length; i++) {
+									if (!workingAnalyzerThreadNumbers.contains(i)) {
+										workingAnalyzerThreadNumbers.add(i);
+										analyzers[i].SetHTML(htmlContent);
+										break;
+									}
+								}
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						} else {
+							break;
+						}
+					}
 				}
-				for (int i = 0; i < downloaderThreads.length; i++) {
-					downloaderThreads[i].join(100);
+
+				synchronized (workingDownloaderThreadNumbers) {
+					while (workingDownloaderThreadNumbers.size() < maxDownloaders) {
+						if (!urlsToDownload.isEmpty()) {
+							try {
+								String url = urlsToDownload.take();
+								for (int i = 0; i < downloaderWaitingThreads.length; i++) {
+									if (!workingDownloaderThreadNumbers.contains(i)) {
+										workingDownloaderThreadNumbers.add(i);
+										downloaders[i].setURL(url);
+										break;
+									}
+								}
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						} else {
+							break;
+						}
+					}
 				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+
+				System.out.println("Crawler is ending toDownload empty: " + urlsToDownload.isEmpty() + " toAnalyze empty: " + htmlToAnalyze.isEmpty() + " Working Downloader Threads: " + workingDownloaderThreadNumbers.size() + 
+						" Working Analyzer Threads: " + workingAnalyzerThreadNumbers.size() + "Pages visited: " + pagesVisited.size() );
+				try {
+					for (int i = 0; i < analyzerWaitingThreads.length; i++) {
+
+						analyzerWaitingThreads[i].join(100);;
+
+					}
+					for (int i = 0; i < downloaderWaitingThreads.length; i++) {
+						downloaderWaitingThreads[i].join(100);
+					}
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				System.out.println("All threads have joined");
+				System.out.println("Creating results page");
+				createResultPage();
+				isCrawlerRunning = false;
 			}
-			System.out.println("All threads have joined");
-			System.out.println("Creating results page");
-			createResultPage();
-			isCrawlerRunning = false;
+		}
+	}
+
+	protected boolean IsUrlsToDownloadEmpty() {
+		boolean result = false;
+		synchronized (urlsToDownload) {
+			result = urlsToDownload.isEmpty();
 		}
 
+		return result;
+	}
+
+	protected String NextUrlToDownload() {
+		String result = "";
+		synchronized (urlsToDownload) {
+			try {
+				result = urlsToDownload.take();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		return result;
+	}
+
+	protected boolean IsHTMLToAnalyzeEmpty() {
+		boolean result = false;
+		synchronized (htmlToAnalyze) {
+			result = htmlToAnalyze.isEmpty();
+		}
+
+		return result;
+	}
+
+	protected String NextHTMLToAnalyze() {
+		String result = "";
+		synchronized (urlsToDownload) {
+			try {
+				result = urlsToDownload.take();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		return result;
 	}
 
 
@@ -278,7 +371,7 @@ public class Crawler implements Runnable {
 				crawledDomains.add(resultFileName);
 			}
 		}
-		
+
 	}
 
 	private void createResultPage() {
@@ -308,7 +401,7 @@ public class Crawler implements Runnable {
 				} else {
 					writer.write("<li>" + externalDomain + "</li>");
 				}
-				
+
 			}
 			writer.write("</ul>");
 			if (performPortScan) {
@@ -317,8 +410,8 @@ public class Crawler implements Runnable {
 			writer.write("<h2>Average RTT: " + averageRTT + "</h2>");
 			writer.write("<h3><a href = \"/\">Back To Main Page</a></h3>");
 			writer.write("</body></html>");
-			
-			
+
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -330,7 +423,7 @@ public class Crawler implements Runnable {
 			workingThreads = workingThreads + num;
 		}
 	}
-	
+
 	protected int GetWorkingThreadsCount() {
 		int result;
 		synchronized (workingThreads) {
@@ -363,9 +456,9 @@ public class Crawler implements Runnable {
 					}
 				}
 			}
-			
+
 			//System.out.println(forbiddenUrls.length);
-			
+
 		}
 		return result;
 	}
@@ -384,7 +477,7 @@ public class Crawler implements Runnable {
 				System.out.println(port + ", ");
 				socket.close();
 			} catch (Exception e) {
-				
+
 			}
 
 		}
@@ -487,7 +580,7 @@ public class Crawler implements Runnable {
 			urlsToDownload.put(url);
 			return true;
 		}
-		
+
 		return false;
 	}
 
@@ -570,7 +663,7 @@ public class Crawler implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+
 	}
 
 	public void addURLToExternal(String currentLink) {
@@ -580,6 +673,30 @@ public class Crawler implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+
+	}
+
+	public void RemoveDownloaderFromWorking(int threadNumber) {
+		synchronized (workingDownloaderThreadNumbers) {
+			try {
+				workingDownloaderThreadNumbers.remove(threadNumber);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+	}
+	
+	public void RemoveAnalyzerFromWorking(int threadNumber) {
+		synchronized (workingAnalyzerThreadNumbers) {
+			try {
+				workingAnalyzerThreadNumbers.remove(threadNumber);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
 	}
 }

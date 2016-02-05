@@ -1,8 +1,9 @@
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 
-public class SynchronizedQueue<T> {
+public class SynchronizedQueue<T> implements Iterable<T>{
 	
 	private LinkedList<T> queue;
 	
@@ -31,4 +32,11 @@ public class SynchronizedQueue<T> {
 	public synchronized void addAll(List<T> items) {
 		queue.addAll(items);
 	}
+
+	@Override
+	public Iterator<T> iterator() {
+		return queue.iterator();
+	}
+	
+	
 }
