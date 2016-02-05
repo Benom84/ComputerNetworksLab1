@@ -30,14 +30,19 @@ public class ClientRequest {
     private String responseStatusCode;
     private String responseHttpVersion;
     private String[] parsedRequest;
+    BufferedReader inputBuffer;
 	//private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
+
+    public static void main(String[] args) throws IOException {
+        //String url = "http://www.ynet.co.il/home/0,7340,L-8,00.html";
+        //ClientRequest testing = new ClientRequest(url, getRequest);
+        //System.out.println(testing.getBody());;
+    }
 
     public ClientRequest(String url, String requestType) throws IOException {
     	
         parseURL(url);
-        //host = "www.google.com";
-        //location = "\\";
         this.requestType = requestType;
         Socket socket = new Socket();
         try {
@@ -59,7 +64,8 @@ public class ClientRequest {
             }
 
             InputStreamReader IR = new InputStreamReader(socket.getInputStream());
-            
+
+
             char[] buffer = new char[1024];
             int indexOfBuffer = 0;
             StringBuilder HeaderResponse = new StringBuilder();
@@ -79,7 +85,9 @@ public class ClientRequest {
             System.out.println("Finished reading header");
             System.out.println(HeaderResponse.toString());
             parseResponse(HeaderResponse.toString());
-            
+
+
+
             // Read Body
             StringBuilder BodyResponse = new StringBuilder();
             int contentLength = 0;
@@ -95,22 +103,16 @@ public class ClientRequest {
                 	body = BodyResponse.toString();
                 	System.out.println("Finished reading body");
                 }
-            } else {
-            	indexOfBuffer = IR.read(buffer);
-                while (indexOfBuffer > 0) {
-                	BodyResponse.append(buffer, 0 ,indexOfBuffer);
-                	if (BodyResponse.toString().endsWith(CRLF + CRLF)) {
-                		break;
-                	}
-                	//System.out.println("Index of buffer3: " + indexOfBuffer);
-                	indexOfBuffer = IR.read(buffer);
-                	//System.out.println("Index of buffer4: " + indexOfBuffer);
-                }
-                body = BodyResponse.toString();
-                responseHeaderFields.put("Content-Length","" + body.length());
+            } else if(responseHeaderFields.containsKey("Transfer-Encoding")){
+                System.out.println("!!!!!!!!!!We have chunk data!");
+                inputBuffer = new BufferedReader(IR);
+                body = readChunkedData();
+
+            }else{
+                System.out.println("Error Reading body!");
+                body = "";
             }
-            
-            System.out.println("6");
+
             /*if (requestType.equals(headRequest)) {
                 headers = response.toString();
                 body = null;
@@ -208,12 +210,45 @@ public class ClientRequest {
             String[] splitLine = line.split(": ");
             if(splitLine.length == 2){
                 result.put(splitLine[0], splitLine[1]);
-                //System.out.println("Key: " + splitLine[0] + ", value: " + splitLine[1]);
+                System.out.println("Key: " + splitLine[0] + ", value: " + splitLine[1]);
             }
         }
         return result;
     }
+    private String readChunkedData() throws IOException {
+        StringBuilder SB = new StringBuilder();
+        while(true) {
+            String line = inputBuffer.readLine();
+            if (line == null) {
+                throw new IOException();
+            }
+            if (line == CRLF) {
+                continue;
+            }
+            int index;
+            try {
+                index = Integer.parseInt(line, 16);
+            }catch(Exception e){
+                index = -1;
+            }
+            if(index == 0){
+                return SB.toString();
+            }else if(index > 0){
+                //System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+                //System.out.println("Number found: " + index);
+                //System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+                if(SB.length() > 0) {
+                    SB.deleteCharAt(SB.length() - 1);
+                    SB.deleteCharAt(SB.length() - 1);
+                }
+                continue;
+            }else{
+                SB.append(line);
+            }
+            //System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
 
+        }
+    }
     public String getResponseStatusCode(){
         return responseStatusCode;
     }
