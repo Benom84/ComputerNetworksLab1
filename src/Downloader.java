@@ -10,14 +10,9 @@ public class Downloader implements Runnable {
 	private List<String> imageExtensions;
 	private List<String> videoExtensions;
 	private String urlToDownload = "";
-	private ThreadConnection<Downloader> threadedConnection;
-	private SynchronizedQueue<ThreadConnection<Downloader>> availableQueue;
-	private SynchronizedSet<ThreadConnection<Downloader>> workingSet;
 
-	public Downloader(Crawler crawler, SynchronizedQueue<ThreadConnection<Downloader>> availableQueue, SynchronizedSet<ThreadConnection<Downloader>> workingSet) {
+	public Downloader(Crawler crawler) {
 		parentCrawler = crawler;
-		this.availableQueue = availableQueue;
-		this.workingSet = workingSet;
 	}
 
 	@Override
@@ -32,37 +27,27 @@ public class Downloader implements Runnable {
 		while (running) {
 
 
+			try {
+				System.out.println("Downloader: Requesting next url to download");
+				urlToDownload = parentCrawler.nextUrlToDownload();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			if (!running) {
+				System.out.println("Downloader is shutting down.");
+				return;
+			}
+			
 			System.out.println("Downloader: urlToDownload is: " + urlToDownload);
-			if (!urlToDownload.equals("")) {
+			if (!(urlToDownload == null)) {
 				System.out.println("Downloader: Activating download for: " + urlToDownload);
 				downloadURL();
+				//TODO delete temp
+				int temp = parentCrawler.lowerWorkload();
+				System.out.println("#################Downloader finished downloading and workload is now: " + temp);
 			}
-			System.out.println("Downloader: going to sleep.");
-			synchronized(urlToDownload) {
-				try {
-
-					while (urlToDownload.equals(""))
-						urlToDownload.wait(100);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			System.out.println("Downloader: Woken up from wait.");
 		}
-	}
-
-	public void setURL(String urlToDownload, ThreadConnection<Downloader> threadedConnection) {
-		System.out.println("Donwloader: setURL was activated, entering synchronized.");
-		synchronized(urlToDownload) {
-			this.threadedConnection = threadedConnection;
-			this.urlToDownload = urlToDownload;
-			System.out.println("Downloader: Received setURL. Setting urlToDownload to: " + urlToDownload);
-			urlToDownload.notifyAll();
-			System.out.println("Downloader: Received setURL. notified all.");
-		}
-
-
 	}
 
 	private void downloadURL() {
@@ -94,14 +79,16 @@ public class Downloader implements Runnable {
 		if (response.equals("200")) {
 			System.out.println("In response header:");
 			for (String string : clientRequest.responseHeaderFields.keySet()) {
-				System.out.println("Key: " + string + " Value: " +  clientRequest.responseHeaderFields.get(string));
+				System.out.println("Key1: " + string + " Value: " +  clientRequest.responseHeaderFields.get(string));
 			}
 			System.out.println("Content-Length: " + clientRequest.responseHeaderFields.get("Content-Length"));
+			System.out.println("Just checking");
 			int sizeOfFile = 0; 
 			if (clientRequest.responseHeaderFields.containsKey(("Content-Length"))) {
 				sizeOfFile = Integer.parseInt(clientRequest.responseHeaderFields.get("Content-Length"));	
 			}
 
+			System.out.println("Downloader: Handling body");
 
 			// If it was an HTML Page
 			if (requestType.trim().equalsIgnoreCase("get")) {
@@ -120,6 +107,7 @@ public class Downloader implements Runnable {
 				}
 			} else {
 
+				System.out.println("Downloader: It was a head request. Updating statistcs");
 				if (documentExtensions.contains(fileType)) {
 					parentCrawler.updateDocuments(1, sizeOfFile);
 				} else if (imageExtensions.contains(fileType)) {
@@ -147,17 +135,8 @@ public class Downloader implements Runnable {
 				e.printStackTrace();
 			}
 		}
-
+		System.out.println("Downloader: Finished downloading");
 		urlToDownload = "";
-		try {
-			System.out.println("Downloader finished: adding itself to available");
-			availableQueue.put(threadedConnection);
-			System.out.println("Downloader finished: removing itself from working");
-			workingSet.remove(threadedConnection);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-
 	}
 
 	private boolean isURLFullHTTP(String newURL) {
@@ -181,5 +160,9 @@ public class Downloader implements Runnable {
 		}
 
 		return fileExtension;
+	}
+	
+	public void shutdown() {
+		running = false;
 	}
 }

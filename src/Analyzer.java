@@ -10,57 +10,38 @@ public class Analyzer implements Runnable {
 	private Crawler parentCrawler;
 	private Boolean running;
 	private HTMLContent htmlContent;
-	private SynchronizedQueue<ThreadConnection<Analyzer>> availableThreads;
-	private SynchronizedSet<ThreadConnection<Analyzer>> workingThreads;
-	private ThreadConnection<Analyzer> threadedConnection;
-	private String htmlToParse = "";
 
-	public Analyzer(Crawler crawler, 
-			SynchronizedQueue<ThreadConnection<Analyzer>> availableThreads, 
-			SynchronizedSet<ThreadConnection<Analyzer>> workingThreads) {
+	public Analyzer(Crawler crawler) {
 
 		parentCrawler = crawler;
-		this.availableThreads = availableThreads;
-		this.workingThreads = workingThreads;
 	}
 
 	@Override
 	public void run() { 
 		running = true;
 		while (running) {
+			try {
+				htmlContent = parentCrawler.nextHtmlToAnalyze();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+
+			if (!running) {
+				System.out.println("Analyzer is shutting down.");
+				return;
+			}
+
 			if (htmlContent != null) {
 				System.out.println("Activating parseHTML");
 				try {
 					parseHtml();
+					int temp = parentCrawler.lowerWorkload();
+					System.out.println("#################Analyzer finished analyzing and workload is now: " + temp);
 				} catch (IOException e) {
 					System.out.println("Could not parseHTML.");
 				}
 			}	
-
-			System.out.println("Analyzer: going to sleep.");
-			synchronized(htmlToParse) {
-				try {
-
-					while (htmlContent == null)
-						htmlToParse.wait(100);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			System.out.println("Analyzer: Woken up from wait.");
 		}
-	}
-
-	public void SetHTML(HTMLContent htmlContent, ThreadConnection<Analyzer> workerThread) {
-		synchronized (htmlToParse) {
-			this.threadedConnection = workerThread;
-			this.htmlContent = htmlContent;
-			this.htmlToParse = htmlContent.GetHTML();
-			System.out.println("Analyzer was set");
-			htmlToParse.notifyAll();
-		}
-
 	}
 
 	private void parseHtml() throws IOException {
@@ -89,15 +70,6 @@ public class Analyzer implements Runnable {
 		}
 
 		htmlContent = null;
-		htmlToParse = "";
-		try {
-			availableThreads.put(threadedConnection);
-			workingThreads.remove(threadedConnection);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-
-
 	}
 
 	private boolean isPartOfHost(String currentLink) {
@@ -124,7 +96,7 @@ public class Analyzer implements Runnable {
 
 		return links;
 	}
-	*/
+	 */
 	public Set<String> getLinksFromHtml(String HTMLPage) throws IOException {
 
 		//System.out.println("Analyzer is parsing: " + HTMLPage);
@@ -191,9 +163,16 @@ public class Analyzer implements Runnable {
 
 	private boolean isURLRelative(String url) {
 
-		return url.substring(0, 1).equalsIgnoreCase("/");
+		if (url.trim().length() > 0) {
+			return url.substring(0, 1).equalsIgnoreCase("/");	
+		}
+		
+		return false;
+		
 	}
 
-
+	public void shutdown() {
+		running = false;
+	}
 
 }

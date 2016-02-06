@@ -22,11 +22,16 @@ public class SynchronizedQueue<T> implements Iterable<T>{
 		}
 		
 		T item = queue.removeFirst();
+		notifyAll();
 		return item;
 	}
 	
 	public boolean isEmpty(){
 		return queue.isEmpty();
+	}
+	
+	public synchronized int size() {
+		return queue.size();
 	}
 	
 	public synchronized void addAll(List<T> items) {
