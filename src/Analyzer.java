@@ -23,7 +23,7 @@ public class Analyzer implements Runnable {
 			try {
 				htmlContent = parentCrawler.nextHtmlToAnalyze();
 			} catch (InterruptedException e1) {
-				e1.printStackTrace();
+				//e1.printStackTrace();
 			}
 
 			if (!running) {

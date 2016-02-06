@@ -31,7 +31,7 @@ public class Downloader implements Runnable {
 				System.out.println("Downloader: Requesting next url to download");
 				urlToDownload = parentCrawler.nextUrlToDownload();
 			} catch (InterruptedException e1) {
-				e1.printStackTrace();
+				//e1.printStackTrace();
 			}
 			
 			if (!running) {

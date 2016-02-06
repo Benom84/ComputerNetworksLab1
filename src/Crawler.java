@@ -253,7 +253,7 @@ public class Crawler implements Runnable {
 			for (Downloader downloader : allDownloaders) {
 				downloader.shutdown();
 			}
-
+/*
 			System.out.println("###########################################Signaling downloaders to wakeup.");
 			synchronized (urlsToDownload) {
 				urlsToDownload.notifyAll();
@@ -263,11 +263,14 @@ public class Crawler implements Runnable {
 			synchronized (htmlToAnalyze) {
 				htmlToAnalyze.notifyAll();
 			}
+			*/
 			try {
 				for (Thread thread : analyzerThreads) {
+					thread.interrupt();
 					thread.join();
 				}
 				for (Thread thread : downloaderThreads) {
+					thread.interrupt();
 					thread.join();
 				}
 			} catch (InterruptedException e) {
