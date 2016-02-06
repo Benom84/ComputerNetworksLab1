@@ -169,7 +169,7 @@ public class Analyzer implements Runnable {
 	}
 	public static boolean isLinkValid(String link){
 		if(link.startsWith("//")){
-			return false;
+			return true;
 		}
 		if(link.startsWith("android-app:")){
 			return false;

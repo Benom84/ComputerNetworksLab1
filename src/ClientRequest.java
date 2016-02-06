@@ -18,6 +18,7 @@ public class ClientRequest {
     public String host;
     private String location;
     private String requestType;
+    private long timeOfRttInMilliseconds;
 
     final static String newLine = System.lineSeparator();
     public HashMap<String, String> responseHeaderFields;
@@ -31,7 +32,7 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public static void main(String[] args) throws IOException {
-        String url = "http://www.ynet.co.il//articles//0,7340,L-4759862,00.html";
+        String url = "http://www.ynet.co.il//articles//0,7340,L-4760315,00.html";
         ClientRequest testing = new ClientRequest(url, getRequest);
 
         System.out.println("-------------------------------------------------------------------------");;
@@ -58,6 +59,9 @@ public class ClientRequest {
             //BufferedOutputStream socketOutputStream = new BufferedOutputStream(socket.getOutputStream());
             //PrintStream PS = new PrintStream(socket.getOutputStream());
             //PS.println("HEAD / HTTP/1.0");
+            long start = System.currentTimeMillis();
+
+
             if (requestType.equals(headRequest)) {
                 socketOutputStream.writeBytes(headRequest + location + " HTTP/1.1" + CRLF);
                 socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
@@ -67,6 +71,10 @@ public class ClientRequest {
                 socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
                 socketOutputStream.flush();
             }
+            while(socket.getInputStream().available() == 0){
+
+            }
+            timeOfRttInMilliseconds = (System.currentTimeMillis() - start);
 
             InputStreamReader IR = new InputStreamReader(socket.getInputStream());
 
@@ -140,6 +148,7 @@ public class ClientRequest {
 
         }catch (Exception e){
             System.out.println("Failed to connect to " + url);
+            timeOfRttInMilliseconds = 0;
             e.printStackTrace();
         } finally {
 
@@ -264,6 +273,10 @@ public class ClientRequest {
 
         }
     }
+
+    public long getRTTtime(){
+        return timeOfRttInMilliseconds;
+    }
     public String getResponseStatusCode(){
         return responseStatusCode;
     }
@@ -329,7 +342,7 @@ public class ClientRequest {
     //TODO: delete this method - it's for debbug only
     public static boolean isLinkValid(String link){
         if(link.startsWith("//")){
-            return false;
+            return true;
         }
         if(link.startsWith("android-app:")){
             return false;
