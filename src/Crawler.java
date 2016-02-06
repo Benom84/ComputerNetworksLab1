@@ -1,11 +1,6 @@
 
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -69,6 +64,17 @@ public class Crawler implements Runnable {
 		//Set<String> testing = aviv.readRobotsFile("http://www.google.com/robots.txt");
 		//ClientRequest testing = new ClientRequest("ynet.co.il", ClientRequest.headRequest);
 		//System.out.println(testing.getResponseStatusCode());
+		StringBuilder SB = new StringBuilder();
+		BufferedReader br = new BufferedReader(new FileReader("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\linksExtracted - Ynet3.txt"));
+		String line = br.readLine();
+		while(line != null){
+			if(!line.startsWith("Excluded:")) {
+				System.out.println("Parse for url: " + line);
+				pasrseURL(line);
+				System.out.println(System.lineSeparator());
+			}
+			line = br.readLine();
+		}
 	}
 
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
@@ -130,7 +136,7 @@ public class Crawler implements Runnable {
 		return true;
 	}
 
-	private String pasrseURL(String url) {
+	private static String pasrseURL(String url) {
 		String parsedURL = "";
 
 		try {
@@ -143,6 +149,7 @@ public class Crawler implements Runnable {
 					parsedURL = parsedURL.substring(0, indexOfFirstSlash);
 				}
 				System.out.println("Host is: " + parsedURL);
+
 			}
 
 		} catch(Exception e){
@@ -574,7 +581,7 @@ public class Crawler implements Runnable {
 		return result;
 	}
 
-	//For Debbug
+	//TODO: delete this methos as it's onlt for debbuging
 	public void changeRunningStatus() {
 		isCrawlerRunning = true;
 	}

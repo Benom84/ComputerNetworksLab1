@@ -31,11 +31,17 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public static void main(String[] args) throws IOException {
-        String url = "http://www.ynet.co.il/images/back_to.png";
+        String url = "http://www.ynet.co.il//articles//0,7340,L-4759862,00.html";
         ClientRequest testing = new ClientRequest(url, getRequest);
 
         System.out.println("-------------------------------------------------------------------------");;
-        testing.getLinksFromHtml(testing.getBody(), "pic");
+        testing.getLinksFromHtml(testing.getBody(), "Ynet4");
+        //System.out.println("!!!!!!" + testing.getBody());
+        File bodyOutput = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\body.txt");
+        FileWriter fw = new FileWriter(bodyOutput);
+        fw.write(testing.getBody());
+        fw.close();
+
        //System.out.println(isLinkValid("/dy2.ynet.co.il/scripts/8765235/api_dynamic.js"));
     }
 
@@ -95,15 +101,23 @@ public class ClientRequest {
             	System.out.println("ContentLength is: " + contentLength);
             	body = "";
                 if (contentLength > 0) {
-                	byte[] data = new byte[contentLength];
-                	DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-                	dataInputStream.read(data, 0, contentLength);
-                	BodyResponse.append(Arrays.toString(data));
-                	body = BodyResponse.toString();
+                    inputBuffer = new BufferedReader(IR);
+                    String line = inputBuffer.readLine();
+
+                    while(line != null){
+                       BodyResponse.append(line);
+                        line = inputBuffer.readLine();
+                    }
+                    body = BodyResponse.toString();
+
                 	System.out.println("Finished reading body");
+                    //System.out.println("*********************Body for " + url + " *************************");
+                    //System.out.println(body);
+                    //System.out.println("*********************End of Body for " + url + " ******************");
                 }
             } else if(responseHeaderFields.containsKey("Transfer-Encoding")){
-                System.out.println("!!!!!!!!!!We have chunk data!");
+                //TODO: delete this
+                //System.out.println("!!!!!!!!!!We have chunk data!");
                 inputBuffer = new BufferedReader(IR);
                 body = readChunkedData();
 
