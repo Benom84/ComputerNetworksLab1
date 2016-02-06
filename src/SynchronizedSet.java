@@ -20,6 +20,7 @@ public class SynchronizedSet<T> implements Iterable<T>{
 	
 	public synchronized boolean remove(T item) throws InterruptedException {
 
+		notifyAll();
 		return set.remove(item);
 	}
 	

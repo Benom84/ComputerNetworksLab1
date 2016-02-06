@@ -220,121 +220,36 @@ public class Crawler implements Runnable {
 				e.printStackTrace();
 			}
 
-			Downloader[] downloaders = new Downloader[maxDownloaders];
-			Analyzer[] analyzers = new Analyzer[maxAnalyzers];
-			Thread[] downloaderWaitingThreads = new Thread[maxDownloaders];
-			Thread[] analyzerWaitingThreads = new Thread[maxAnalyzers];
-			workingDownloaderThreadNumbers = new SynchronizedSet<>();
-			workingAnalyzerThreadNumbers = new SynchronizedSet<>();
 
-			for (int i = 0; i < analyzers.length; i++) {
-				analyzers[i] = new Analyzer(this, i);
-				analyzerWaitingThreads[i] = new Thread(analyzers[i]);
-				analyzerWaitingThreads[i].start();
-			}
-
-			for (int i = 0; i < downloaders.length; i++) {
-				downloaders[i] = new Downloader(this, i);
-				downloaderWaitingThreads[i] = new Thread(downloaders[i]);
-				downloaderWaitingThreads[i].start();
-			}
-
-
+			DownloadersManager downloadersManager = new DownloadersManager(maxDownloaders, this, urlsToDownload);
+			AnalyzersManager analyzersManager = new AnalyzersManager(maxAnalyzers, this, htmlToAnalyze);
+			Thread downloadersThread = new Thread(downloadersManager);
+			Thread analyzersThread = new Thread(analyzersManager);
+			downloadersThread.start();
+			analyzersThread.start();
 
 			// If (the threads are active or the queues are not empty) and we didn't exceed the pages to visit
 			// TODO remove MAX_PAGES
-			while ((pagesVisited.size() < MAX_PAGES_TO_SEARCH) && (!urlsToDownload.isEmpty() || !htmlToAnalyze.isEmpty() || 
-					(getWorkingDownloadersNumber() > 0) || (getWorkingAnalyzersNumber() > 0))) 
-			{
-				synchronized (workingAnalyzerThreadNumbers) {
-					while (workingAnalyzerThreadNumbers.size() < maxAnalyzers) {
-						if (!htmlToAnalyze.isEmpty()) {
-							try {
-								HTMLContent htmlContent = htmlToAnalyze.take();
-								for (int i = 0; i < analyzerWaitingThreads.length; i++) {
-									if (!workingAnalyzerThreadNumbers.contains(i)) {
-										workingAnalyzerThreadNumbers.add(i);
-										analyzers[i].SetHTML(htmlContent);
-										break;
-									}
-								}
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-						} else {
-							break;
-						}
-					}
+			while (pagesVisited.size() < MAX_PAGES_TO_SEARCH) {
+				
+				synchronized (this) {
+					try {
+						wait(1000);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}	
 				}
-
-				synchronized (workingDownloaderThreadNumbers) {
-					while (workingDownloaderThreadNumbers.size() < maxDownloaders) {
-						if (!urlsToDownload.isEmpty()) {
-							try {
-								String url = urlsToDownload.take();
-								for (int i = 0; i < downloaderWaitingThreads.length; i++) {
-									if (!workingDownloaderThreadNumbers.contains(i)) {
-										workingDownloaderThreadNumbers.add(i);
-										downloaders[i].setURL(url);
-										break;
-									}
-								}
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-						} else {
-							break;
-						}
-					}
-				}
-
-				System.out.println("Crawler is ending toDownload empty: " + urlsToDownload.isEmpty() + " toAnalyze empty: " + htmlToAnalyze.isEmpty() + " Working Downloader Threads: " + workingDownloaderThreadNumbers.size() + 
-						" Working Analyzer Threads: " + workingAnalyzerThreadNumbers.size() + "Pages visited: " + pagesVisited.size() );
-				try {
-					for (int i = 0; i < analyzerWaitingThreads.length; i++) {
-
-						analyzerWaitingThreads[i].join(100);;
-
-					}
-					for (int i = 0; i < downloaderWaitingThreads.length; i++) {
-						downloaderWaitingThreads[i].join(100);
-					}
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				System.out.println("All threads have joined");
-				System.out.println("Creating results page");
-				createResultPage();
-				isCrawlerRunning = false;
+				
 			}
-		}
-	}
 
-	protected boolean IsUrlsToDownloadEmpty() {
-		boolean result = false;
-		synchronized (urlsToDownload) {
-			result = urlsToDownload.isEmpty();
-		}
 
-		return result;
-	}
-	
-	private int getWorkingAnalyzersNumber() {
-		int result = 0;
-		synchronized (workingAnalyzerThreadNumbers) {
-			result = workingAnalyzerThreadNumbers.size();
+
+			System.out.println("All threads have joined");
+			System.out.println("Creating results page");
+			createResultPage();
+			isCrawlerRunning = false;
 		}
-		return result;
-	}
-	
-	private int getWorkingDownloadersNumber() {
-		int result = 0;
-		synchronized (workingDownloaderThreadNumbers) {
-			result = workingDownloaderThreadNumbers.size();
-		}
-		return result;
 	}
 
 	protected String NextUrlToDownload() {
@@ -609,6 +524,7 @@ public class Crawler implements Runnable {
 
 	protected void addHtmlToAnalyze(String htmlBody, String source) throws InterruptedException {
 		htmlToAnalyze.put(new HTMLContent(htmlBody, source));
+		System.out.println("addHtmlToAnalyzer added body at length: " + htmlBody.length());
 	}
 
 	protected void updateImages(int numberOfImages, int sizeOfImages) {
@@ -703,7 +619,7 @@ public class Crawler implements Runnable {
 		}
 
 	}
-	
+
 	public void RemoveAnalyzerFromWorking(int threadNumber) {
 		synchronized (workingAnalyzerThreadNumbers) {
 			try {

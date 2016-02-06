@@ -7,32 +7,53 @@ import java.util.regex.Pattern;
 public class Analyzer implements Runnable {
 
 	private Crawler parentCrawler;
-	private int threadNumber;
 	private Boolean running;
 	private HTMLContent htmlContent;
+	private SynchronizedQueue<ThreadConnection<Analyzer>> availableThreads;
+	private SynchronizedSet<ThreadConnection<Analyzer>> workingThreads;
+	private ThreadConnection<Analyzer> threadedConnection;
+	private String htmlToParse = "";
 
-	public Analyzer(Crawler crawler, int threadNumber) {
+	public Analyzer(Crawler crawler, 
+			SynchronizedQueue<ThreadConnection<Analyzer>> availableThreads, 
+			SynchronizedSet<ThreadConnection<Analyzer>> workingThreads) {
 
 		parentCrawler = crawler;
-		this.threadNumber = threadNumber;
+		this.availableThreads = availableThreads;
+		this.workingThreads = workingThreads;
 	}
 
 	@Override
 	public void run() { 
 		running = true;
 		while (running) {
-			synchronized (running) {
-				htmlContent = null;
+			if (htmlContent != null) {
+				System.out.println("Activating parseHTML");
+				parseHtml();
+			}	
+
+			System.out.println("Analyzer: going to sleep.");
+			synchronized(htmlToParse) {
 				try {
-					running.wait();
-					if (htmlContent != null) {
-						parseHtml();
-					}
+
+					while (htmlContent == null)
+						htmlToParse.wait(100);
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}	
+			}
+			System.out.println("Analyzer: Woken up from wait.");
+		}
+	}
+
+	public void SetHTML(HTMLContent htmlContent, ThreadConnection<Analyzer> workerThread) {
+		synchronized (htmlToParse) {
+			this.threadedConnection = workerThread;
+			this.htmlContent = htmlContent;
+			this.htmlToParse = htmlContent.GetHTML();
+			System.out.println("Analyzer was set");
+			htmlToParse.notifyAll();
 		}
 
 	}
@@ -63,7 +84,13 @@ public class Analyzer implements Runnable {
 		}
 
 		htmlContent = null;
-		parentCrawler.RemoveAnalyzerFromWorking(threadNumber);
+		htmlToParse = "";
+		try {
+			availableThreads.put(threadedConnection);
+			workingThreads.remove(threadedConnection);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 
 
 	}
@@ -98,12 +125,6 @@ public class Analyzer implements Runnable {
 		return url.substring(0, 1).equalsIgnoreCase("/");
 	}
 
-	public void SetHTML(HTMLContent htmlContent) {
-		synchronized (running) {
-			this.htmlContent = htmlContent;
-			running.notifyAll();
-		}
 
-	}
 
 }

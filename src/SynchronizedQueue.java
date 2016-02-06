@@ -31,6 +31,7 @@ public class SynchronizedQueue<T> implements Iterable<T>{
 	
 	public synchronized void addAll(List<T> items) {
 		queue.addAll(items);
+		notifyAll();
 	}
 
 	@Override
