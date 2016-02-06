@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -29,7 +30,11 @@ public class Analyzer implements Runnable {
 		while (running) {
 			if (htmlContent != null) {
 				System.out.println("Activating parseHTML");
-				parseHtml();
+				try {
+					parseHtml();
+				} catch (IOException e) {
+					System.out.println("Could not parseHTML.");
+				}
 			}	
 
 			System.out.println("Analyzer: going to sleep.");
@@ -58,7 +63,7 @@ public class Analyzer implements Runnable {
 
 	}
 
-	private void parseHtml() {
+	private void parseHtml() throws IOException {
 
 		HTMLContent currentHtmlToParse = htmlContent;
 
@@ -105,7 +110,7 @@ public class Analyzer implements Runnable {
 		}
 
 	}
-
+	/*
 	public Set<String> getLinksFromHtml(String HTMLPage){
 
 		//System.out.println("Analyzer is parsing: " + HTMLPage);
@@ -118,6 +123,70 @@ public class Analyzer implements Runnable {
 		}
 
 		return links;
+	}
+	*/
+	public Set<String> getLinksFromHtml(String HTMLPage) throws IOException {
+
+		//System.out.println("Analyzer is parsing: " + HTMLPage);
+		Pattern linkPattern = Pattern.compile("href= *' *(.*?)'|href= *\" *(.*?)\"|src= *' *(.*?)'");
+		Matcher pageMatcher = linkPattern.matcher(HTMLPage);
+		Set<String> links = new HashSet<>();
+
+		int index = 0;
+		while(pageMatcher.find()){
+			if(pageMatcher.group(1) != null) {
+				if(isLinkValid(pageMatcher.group(1))) {
+					links.add(pageMatcher.group(1));
+					System.out.println("Link from analyzer: " + pageMatcher.group(1));
+				}else{
+					System.out.println("Excluded link from analyzer: " + pageMatcher.group(1));
+				}
+				index++;
+			}
+			if(pageMatcher.group(2) != null){
+				if(isLinkValid(pageMatcher.group(2))) {
+					links.add(pageMatcher.group(2));
+					System.out.println("Link from analyzer: " + pageMatcher.group(2));
+				}else{
+					System.out.println("Excluded link from analyzer: " + pageMatcher.group(2));
+				}
+				index++;
+			}
+			if(pageMatcher.group(3) != null){
+				if(isLinkValid(pageMatcher.group(3))) {
+					links.add(pageMatcher.group(3));
+					System.out.println("Link from analyzer: " + pageMatcher.group(3));
+				}else{
+					System.out.println("Excluded link from analyzer: " + pageMatcher.group(3));
+				}
+				index++;
+			}
+			//System.out.println("Link from analyzer: " + pageMatcher.group(2));
+		}
+
+		System.out.println("Number of links extracted: " + index);
+		return links;
+	}
+	public static boolean isLinkValid(String link){
+		if(link.startsWith("//")){
+			return false;
+		}
+		if(link.startsWith("android-app:")){
+			return false;
+		}
+		if(link.startsWith("javascript:")){
+			return false;
+		}
+		if(link.startsWith("\"+")){
+			return false;
+		}
+		if(link.endsWith(".js")){
+			return false;
+		}
+		if(link.startsWith("#")){
+			return false;
+		}
+		return true;
 	}
 
 	private boolean isURLRelative(String url) {

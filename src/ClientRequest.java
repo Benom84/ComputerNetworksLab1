@@ -1,8 +1,4 @@
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.*;
@@ -35,9 +31,12 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public static void main(String[] args) throws IOException {
-        //String url = "http://www.ynet.co.il/home/0,7340,L-8,00.html";
-        //ClientRequest testing = new ClientRequest(url, getRequest);
-        //System.out.println(testing.getBody());;
+        String url = "http://www.ynet.co.il/images/back_to.png";
+        ClientRequest testing = new ClientRequest(url, getRequest);
+
+        System.out.println("-------------------------------------------------------------------------");;
+        testing.getLinksFromHtml(testing.getBody(), "pic");
+       //System.out.println(isLinkValid("/dy2.ynet.co.il/scripts/8765235/api_dynamic.js"));
     }
 
     public ClientRequest(String url, String requestType) throws IOException {
@@ -98,7 +97,7 @@ public class ClientRequest {
                 if (contentLength > 0) {
                 	byte[] data = new byte[contentLength];
                 	DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-                	dataInputStream.readFully(data, 0, contentLength);
+                	dataInputStream.read(data, 0, contentLength);
                 	BodyResponse.append(Arrays.toString(data));
                 	body = BodyResponse.toString();
                 	System.out.println("Finished reading body");
@@ -124,10 +123,12 @@ public class ClientRequest {
                 	body = splitResponse[1];
             }
             parseResponse(headers);*/
+
         }catch (Exception e){
             System.out.println("Failed to connect to " + url);
             e.printStackTrace();
         } finally {
+
         	if (socket != null)
         		socket.close();
         }
@@ -262,5 +263,76 @@ public class ClientRequest {
     }
 
     public String getBody() { return body; }
+
+    //TODO: delete this method - it's for debbug only
+    public Set<String> getLinksFromHtml(String HTMLPage, String name) throws IOException {
+
+        //System.out.println("Analyzer is parsing: " + HTMLPage);
+        Pattern linkPattern = Pattern.compile("href= *' *(.*?)'|href= *\" *(.*?)\"|src= *' *(.*?)'");
+        Matcher pageMatcher = linkPattern.matcher(HTMLPage);
+        Set<String> links = new HashSet<>();
+        File linksExtacted = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\linksExtracted - " + name + ".txt");
+        FileWriter fw = new FileWriter(linksExtacted);
+        int index = 0;
+        while(pageMatcher.find()){
+            if(pageMatcher.group(1) != null) {
+                links.add(pageMatcher.group(1));
+                System.out.println("Link from analyzer: " + pageMatcher.group(1));
+                if(isLinkValid(pageMatcher.group(1))) {
+                    fw.write(pageMatcher.group(1) + System.lineSeparator());
+                }else{
+                    fw.write("Excluded: " + pageMatcher.group(1) + System.lineSeparator());
+                }
+                index++;
+            }
+            if(pageMatcher.group(2) != null){
+                links.add(pageMatcher.group(2));
+                System.out.println("Link from analyzer: " + pageMatcher.group(2));
+                if(isLinkValid(pageMatcher.group(2))) {
+                    fw.write(pageMatcher.group(2) + System.lineSeparator());
+                }else{
+                    fw.write("Excluded: " + pageMatcher.group(2) + System.lineSeparator());
+                }
+                index++;
+            }
+            if(pageMatcher.group(3) != null){
+                links.add(pageMatcher.group(3));
+                System.out.println("Link from analyzer: " + pageMatcher.group(3));
+                if(isLinkValid(pageMatcher.group(3))) {
+                    fw.write(pageMatcher.group(3) + System.lineSeparator());
+                }else{
+                    fw.write("Excluded: " + pageMatcher.group(3) + System.lineSeparator());
+                }
+                index++;
+            }
+            //System.out.println("Link from analyzer: " + pageMatcher.group(2));
+        }
+        fw.write(System.lineSeparator() + "Number of links extacted: " + index);
+        fw.close();
+        System.out.println("Number of links extacted: " + index);
+        return links;
+    }
+    //TODO: delete this method - it's for debbug only
+    public static boolean isLinkValid(String link){
+        if(link.startsWith("//")){
+            return false;
+        }
+        if(link.startsWith("android-app:")){
+            return false;
+        }
+        if(link.startsWith("javascript:")){
+            return false;
+        }
+        if(link.startsWith("\"+")){
+            return false;
+        }
+        if(link.endsWith(".js")){
+            return false;
+        }
+        if(link.startsWith("#")){
+            return false;
+        }
+        return true;
+    }
 }
 
