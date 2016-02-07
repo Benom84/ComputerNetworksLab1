@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
  * Created by AvivPC on 16-Jan-16.
  */
 public class ClientRequest {
+    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
     final static String getRequest = "GET ";
     final static String headRequest = "HEAD ";
     final static int port = 80;
@@ -32,7 +33,8 @@ public class ClientRequest {
     private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
     public static void main(String[] args) throws IOException {
-        String url = "http://www.ynet.co.il//articles//0,7340,L-4760315,00.html";
+
+        String url = "http://www.ynet.co.il/articles/0,7340,L-4757442,00.html";
         ClientRequest testing = new ClientRequest(url, getRequest);
 
         System.out.println("-------------------------------------------------------------------------");;
@@ -44,6 +46,7 @@ public class ClientRequest {
         fw.close();
 
        //System.out.println(isLinkValid("/dy2.ynet.co.il/scripts/8765235/api_dynamic.js"));
+
     }
 
     public ClientRequest(String url, String requestType) throws IOException {
@@ -64,11 +67,13 @@ public class ClientRequest {
 
             if (requestType.equals(headRequest)) {
                 socketOutputStream.writeBytes(headRequest + location + " HTTP/1.1" + CRLF);
-                socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
+                socketOutputStream.writeBytes("Host: " + host + CRLF);
+                socketOutputStream.writeBytes("User-Agent: " + USER_AGENT + CRLF + CRLF);
                 socketOutputStream.flush();
             } else if (requestType.equals(getRequest)) {
                 socketOutputStream.writeBytes("GET " + location + " HTTP/1.1" + CRLF);
-                socketOutputStream.writeBytes("Host: " + host + CRLF + CRLF);
+                socketOutputStream.writeBytes("Host: " + host + CRLF);
+                socketOutputStream.writeBytes("User-Agent: " + USER_AGENT + CRLF + CRLF);
                 socketOutputStream.flush();
             }
             while(socket.getInputStream().available() == 0){
@@ -107,17 +112,18 @@ public class ClientRequest {
             if (responseHeaderFields.containsKey("Content-Length")) {
             	contentLength = Integer.parseInt(responseHeaderFields.get("Content-Length"));
             	System.out.println("ContentLength is: " + contentLength);
+
             	body = "";
                 if (contentLength > 0) {
                     inputBuffer = new BufferedReader(IR);
                     String line = inputBuffer.readLine();
-
-                    while(line != null){
+                    System.out.println("Got Here!!");
+                    while(line != null && inputBuffer.ready()){
                        BodyResponse.append(line);
                         line = inputBuffer.readLine();
                     }
+                    System.out.println("Got Here!!");
                     body = BodyResponse.toString();
-
                 	System.out.println("Finished reading body");
                     //System.out.println("*********************Body for " + url + " *************************");
                     //System.out.println(body);
@@ -293,6 +299,9 @@ public class ClientRequest {
 
     //TODO: delete this method - it's for debbug only
     public Set<String> getLinksFromHtml(String HTMLPage, String name) throws IOException {
+        if(HTMLPage == null){
+            return null;
+        }
 
         //System.out.println("Analyzer is parsing: " + HTMLPage);
         Pattern linkPattern = Pattern.compile("href= *' *(.*?)'|href= *\" *(.*?)\"|src= *' *(.*?)'");

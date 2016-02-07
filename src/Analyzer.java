@@ -158,6 +158,9 @@ public class Analyzer implements Runnable {
 		if(link.startsWith("#")){
 			return false;
 		}
+		if(link.contains("twitter") ||link.contains("Twitter")){
+			return false;
+		}
 		return true;
 	}
 
