@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,16 +35,16 @@ public class ClientRequest {
 
 	public static void main(String[] args) throws IOException {
 
-		String url = "http://www.ravmilim.co.il/naerr.asp";
+		String url = "http://m.ynet.co.il/Articles/4762210";
 		ClientRequest testing = new ClientRequest(url, getRequest);
 
 		System.out.println("-------------------------------------------------------------------------");;
 		testing.getLinksFromHtml(testing.getBody(), "Ynet4");
 		//System.out.println("!!!!!!" + testing.getBody());
-		File bodyOutput = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\body.txt");
-		FileWriter fw = new FileWriter(bodyOutput);
-		fw.write(testing.getBody());
-		fw.close();
+		//File bodyOutput = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\body.txt");
+		//FileWriter fw = new FileWriter(bodyOutput);
+		//fw.write(testing.getBody());
+		//fw.close();
 
 		//System.out.println(isLinkValid("/dy2.ynet.co.il/scripts/8765235/api_dynamic.js"));
 
@@ -121,14 +121,15 @@ public class ClientRequest {
 					//System.out.println("Got Here!!");
                     //int index = 1;
                     try {
+						socket.setSoTimeout(10000);
                         while (line != null && inputBuffer.ready()) {
                             BodyResponse.append(line);
                             line = inputBuffer.readLine();
                             //index++;
-                            //System.out.println("A line was read. Index is: " + index);
+                            //System.out.println(line);
                         }
 
-                    }catch(SocketException e){
+                    }catch(SocketTimeoutException e){
                         System.out.println("TimeOut occurred while reading response body.");
                     }
 					//System.out.println("Got Here!!");
