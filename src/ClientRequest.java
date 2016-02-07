@@ -114,7 +114,7 @@ public class ClientRequest {
             	System.out.println("ContentLength is: " + contentLength);
 
             	body = "";
-                if (contentLength > 0) {
+                if ((contentLength > 0) && (requestType == getRequest)) {
                     inputBuffer = new BufferedReader(IR);
                     String line = inputBuffer.readLine();
                     System.out.println("Got Here!!");
@@ -128,6 +128,8 @@ public class ClientRequest {
                     //System.out.println("*********************Body for " + url + " *************************");
                     //System.out.println(body);
                     //System.out.println("*********************End of Body for " + url + " ******************");
+                }else{
+                    body="";
                 }
             } else if(responseHeaderFields.containsKey("Transfer-Encoding")){
                 //TODO: delete this
