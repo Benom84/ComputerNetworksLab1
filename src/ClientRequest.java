@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +35,7 @@ public class ClientRequest {
 
 	public static void main(String[] args) throws IOException {
 
-		String url = "http://www.ynet.co.il/articles/0,7340,L-4757442,00.html";
+		String url = "http://www.ravmilim.co.il/naerr.asp";
 		ClientRequest testing = new ClientRequest(url, getRequest);
 
 		System.out.println("-------------------------------------------------------------------------");;
@@ -117,11 +118,19 @@ public class ClientRequest {
 					System.out.println("ClientRequest: is get request with content length: " + url);
 					inputBuffer = new BufferedReader(IR);
 					String line = inputBuffer.readLine();
-					System.out.println("Got Here!!");
-					while(line != null && inputBuffer.ready()){
-						BodyResponse.append(line);
-						line = inputBuffer.readLine();
-					}
+					//System.out.println("Got Here!!");
+                    //int index = 1;
+                    try {
+                        while (line != null && inputBuffer.ready()) {
+                            BodyResponse.append(line);
+                            line = inputBuffer.readLine();
+                            //index++;
+                            //System.out.println("A line was read. Index is: " + index);
+                        }
+
+                    }catch(SocketException e){
+                        System.out.println("TimeOut occurred while reading response body.");
+                    }
 					//System.out.println("Got Here!!");
 					body = BodyResponse.toString();
 					//System.out.println("Finished reading body");
@@ -142,18 +151,6 @@ public class ClientRequest {
 				body = "";
 			}
 
-			/*if (requestType.equals(headRequest)) {
-                headers = response.toString();
-                body = null;
-            } else if (requestType.equals(getRequest)) {
-                String[] splitResponse = response.toString().split(CRLF + CRLF);
-                System.out.println(response.toString());
-                headers = splitResponse[0];
-                if (splitResponse.length > 1)
-                	body = splitResponse[1];
-            }
-            parseResponse(headers);*/
-
 		}catch (Exception e){
 			System.out.println("Failed to connect to " + url);
 			timeOfRttInMilliseconds = 0;
@@ -163,15 +160,8 @@ public class ClientRequest {
 			if (socket != null)
 				socket.close();
 		}
-		//System.out.print(response.toString());
-		//System.out.println("Status Code is: " + getResponseStatusCode());
-		//System.out.println("Status is: " + getResponseStatus());
-		//System.out.println("Body is: " + body);
-
-
-
-
 	}
+
 	private void parseResponse(String unparsedResponse){
 
 		this.unparsedResponse = unparsedResponse;
