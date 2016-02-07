@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Matcher;
 
 
 public class Downloader implements Runnable {
@@ -45,7 +46,7 @@ public class Downloader implements Runnable {
 				downloadURL();
 				//TODO delete temp
 				int temp = parentCrawler.lowerWorkload();
-				System.out.println("#################Downloader finished downloading and workload is now: " + temp);
+				//System.out.println("#################Downloader finished downloading and workload is now: " + temp);
 			}
 		}
 	}
@@ -55,14 +56,14 @@ public class Downloader implements Runnable {
 		String fileType;
 		String requestType;
 		ClientRequest clientRequest = null;
-		System.out.println("Downloader: downloadURL: got url: " + urlToDownload);
+		//System.out.println("Downloader: downloadURL: got url: " + urlToDownload);
 		fileType = getFileTypeFromURL(urlToDownload);
-		System.out.println("File type is: " + fileType);
+		//System.out.println("File type is: " + fileType);
 		if (fileType.isEmpty() || fileType.equalsIgnoreCase("html") || fileType.equalsIgnoreCase("htm")) {
-			System.out.println("Creating client request of type get");
+			//System.out.println("Creating client request of type get");
 			requestType = ClientRequest.getRequest;
 		} else {
-			System.out.println("Creating client request of type head");
+			//System.out.println("Creating client request of type head");
 			requestType = ClientRequest.headRequest;
 		}
 		try {
@@ -77,25 +78,25 @@ public class Downloader implements Runnable {
 		// Check the response
 		String response = clientRequest.getResponseStatusCode(); 
 		if (response.equals("200")) {
-			System.out.println("In response header:");
-			for (String string : clientRequest.responseHeaderFields.keySet()) {
+			//System.out.println("In response header:");
+			/*for (String string : clientRequest.responseHeaderFields.keySet()) {
 				System.out.println("Key1: " + string + " Value: " +  clientRequest.responseHeaderFields.get(string));
-			}
-			System.out.println("Content-Length: " + clientRequest.responseHeaderFields.get("Content-Length"));
-			System.out.println("Just checking");
+			}*/
+			//System.out.println("Content-Length: " + clientRequest.responseHeaderFields.get("Content-Length"));
+			
 			int sizeOfFile = 0; 
 			if (clientRequest.responseHeaderFields.containsKey(("Content-Length"))) {
 				sizeOfFile = Integer.parseInt(clientRequest.responseHeaderFields.get("Content-Length"));	
 			}
 
-			System.out.println("Downloader: Handling body");
+			//System.out.println("Downloader: Handling body");
 
 			// If it was an HTML Page
 			if (requestType.trim().equalsIgnoreCase("get")) {
 				try {
-					System.out.println("************************************Adding body to analyze**************************************");
+					//System.out.println("************************************Adding body to analyze**************************************");
 					parentCrawler.addHtmlToAnalyze(clientRequest.getBody(), clientRequest.host);
-					System.out.println("************************************Added body to analyze**************************************");
+					//System.out.println("************************************Added body to analyze**************************************");
 					if (sizeOfFile == 0) {
 						sizeOfFile = clientRequest.getBody().length();
 					}
@@ -107,7 +108,7 @@ public class Downloader implements Runnable {
 				}
 			} else {
 
-				System.out.println("Downloader: It was a head request. Updating statistcs");
+				System.out.println("Downloader: It was a head request. Updating statistcs for file type: " + fileType);
 				if (documentExtensions.contains(fileType)) {
 					parentCrawler.updateDocuments(1, sizeOfFile);
 				} else if (imageExtensions.contains(fileType)) {
@@ -119,7 +120,7 @@ public class Downloader implements Runnable {
 
 		} else if (response.equals("302") || response.equals("301")) {
 			String newURL = clientRequest.responseHeaderFields.get("Location");
-			System.out.println("The request returned moved to location: " + newURL);
+			//System.out.println("The request returned moved to location: " + newURL);
 			try {
 				boolean isURLFullHTTPResult = isURLFullHTTP(newURL); 
 				boolean isUrlAdded = false;
@@ -129,35 +130,50 @@ public class Downloader implements Runnable {
 					isUrlAdded = parentCrawler.addUrlToDownload(clientRequest.host + newURL);
 				}
 
-				System.out.println(newURL + " added to download queue? " + isUrlAdded);
+				//System.out.println(newURL + " added to download queue? " + isUrlAdded);
 			} catch (InterruptedException e) {
 				System.out.println("Error adding new url after 302: " + newURL);
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Downloader: Finished downloading");
+		//System.out.println("Downloader: Finished downloading");
 		urlToDownload = "";
 	}
 
 	private boolean isURLFullHTTP(String newURL) {
 
-		String startOfURL = newURL.substring(0, 4);
-		System.out.println(startOfURL);
 		return newURL.substring(0, 4).equalsIgnoreCase("http");
 	}
 
 	private String getFileTypeFromURL(String urlToDownload) {
 
-		System.out.println("Url: " + urlToDownload);
-		if (urlToDownload.lastIndexOf('/') == -1)
-			return "";
-		String fileName = urlToDownload.substring( urlToDownload.lastIndexOf('/')+1, urlToDownload.length() );
-		System.out.println("File Name " + fileName);
+		//System.out.println("Downloader: getFileTypeFromURL: Url: " + urlToDownload);
+		Matcher domainMatcher = Crawler.DOMAIN_PATTERN.matcher(urlToDownload);
 		String fileExtension = "";
-		if (!fileName.isEmpty()) {
-			fileExtension= fileName.substring(fileName.lastIndexOf('.') + 1, fileName.length());
-			fileExtension = fileExtension.trim();	
+		if (domainMatcher.find()) {
+			//System.out.println("Downloader: getFileTypeFromURL: Found Match");
+			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
+				String url = urlToDownload + "/";
+				getFileTypeFromURL(url);
+			}
+			else if (domainMatcher.group(3) != null) {
+				//System.out.println("Downloader: getFileTypeFromURL: domainMatcher found for group 3: " + domainMatcher.group(3));
+				String link = domainMatcher.group(3);
+				if (link.lastIndexOf('/') == -1)
+					return "";
+				String fileName = link.substring( link.lastIndexOf('/')+1, link.length() );
+				//System.out.println("File Name " + fileName);
+				if (!fileName.isEmpty()) {
+					if (fileName.lastIndexOf('.') > 0) {
+						fileExtension= fileName.substring(fileName.lastIndexOf('.') + 1, fileName.length());
+						fileExtension = fileExtension.trim().toLowerCase();		
+					}
+					
+				}
+			}
+			
 		}
+		
 
 		return fileExtension;
 	}

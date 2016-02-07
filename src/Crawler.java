@@ -47,8 +47,6 @@ public class Crawler implements Runnable {
 	private Boolean isCrawlerRunning = false;
 	private String portScanResults;
 	private String allowedHost;
-	private AtomicInteger workingThreads;
-	private AtomicInteger queueLoad;
 	private AtomicInteger totalWorkLoad;
 	private String startDate;
 	private String startTime;
@@ -57,9 +55,7 @@ public class Crawler implements Runnable {
 	private int requestCount;
 	private Float sumOfRTT;
 	private static final String resultsFolder = "\\ScanResults\\";
-	private Object workingThreadsKey;
-	//private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
-	private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
+	public static final Pattern DOMAIN_PATTERN = Pattern.compile("(^[Hh][Tt][Tt][Pp].*:\\/\\/)?(.*?)(\\/.*)");
 
 
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
@@ -110,7 +106,7 @@ public class Crawler implements Runnable {
 			return false;
 		}
 
-		this.targetURL = pasrseURL(targetURL);
+		this.targetURL = parseURL(targetURL);
 
 		if (this.targetURL.charAt(this.targetURL.length() - 1) == '\\') {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
@@ -121,14 +117,18 @@ public class Crawler implements Runnable {
 		return true;
 	}
 
-	private static String pasrseURL(String url) {
+	private static String parseURL(String url) {
 		String parsedURL = "";
-
+		if (!url.endsWith("/")) {
+			url = url + "/";
+		}
+		
+		System.out.println("Crawler: ParseUrl: url is " + url);
 		try {
-			Matcher matcher = urlPattern.matcher(url);
+			Matcher matcher = DOMAIN_PATTERN.matcher(url);
 			if (matcher.find()) {
-
-				parsedURL = matcher.group(3);
+				System.out.println();
+				parsedURL = matcher.group(2);
 				int indexOfFirstSlash = parsedURL.indexOf('/');
 				if (indexOfFirstSlash > 0) {
 					parsedURL = parsedURL.substring(0, indexOfFirstSlash);
@@ -431,9 +431,11 @@ public class Crawler implements Runnable {
 	 */
 	protected String nextUrlToDownload() throws InterruptedException {
 		String nextUrl;
+		totalWorkLoad.incrementAndGet();
 		do {
 			nextUrl = this.urlsToDownload.take();
-		} while (this.pagesVisited.contains(nextUrl) || this.forbiddenPages.contains(nextUrl));
+			totalWorkLoad.decrementAndGet();
+		} while (pagesVisited.contains(nextUrl) || forbiddenPages.contains(nextUrl));
 		this.pagesVisited.add(nextUrl);
 		return nextUrl;
 	}
@@ -445,9 +447,12 @@ public class Crawler implements Runnable {
 				//TODO delete temp
 				int temp = totalWorkLoad.incrementAndGet();
 				System.out.println("#################Workload updated and is now: " + temp);
+				System.out.println("#################urlsToDownload updated and is now: " + urlsToDownload.size());
 				urlsToDownload.put(url);
 				return true;
-			}	
+			}	else {
+				System.out.println("Crawler: addUrlToDownload: did not add the next url: " + url);
+			}
 		}
 
 		return false;
@@ -488,6 +493,7 @@ public class Crawler implements Runnable {
 
 		synchronized (imageFiles) {
 			imageFiles.updateCounter(numberOfImages, sizeOfImages);
+			System.out.println("Image statistics in updated: " + imageFiles.getSizeOfFiles());
 		}
 	}
 
@@ -495,18 +501,21 @@ public class Crawler implements Runnable {
 
 		synchronized (videoFiles) {
 			videoFiles.updateCounter(numberOfVideos, sizeOfVideos);
+			System.out.println("Video statistics in updated: " + videoFiles.getSizeOfFiles());
 		}
 	}
 
 	protected void updateDocuments(int numberOfDocuments, int sizeOfDocuments) {
 		synchronized (documentFiles) {
 			documentFiles.updateCounter(numberOfDocuments, sizeOfDocuments);
+			System.out.println("Documents statistics in updated: " + documentFiles.getSizeOfFiles());
 		}
 	}
 
 	protected void updatePages(int numberOfPages, int sizeOfPages) {
 		synchronized (pagesFiles) {
 			pagesFiles.updateCounter(numberOfPages, sizeOfPages);
+			System.out.println("Pages statistics in updated: " + pagesFiles.getSizeOfFiles());
 		}
 	}
 
