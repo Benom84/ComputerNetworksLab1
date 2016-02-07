@@ -84,8 +84,13 @@ public class Analyzer implements Runnable {
 		if (domainMatcher.find()) {
 			System.out.println("Analyzer: isPartOfHost: domain matcher found");
 			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
-				String link = currentLink + "/";
-				return isPartOfHost(link);
+				if (!currentLink.endsWith("/")) {
+					String link = currentLink + "/";
+					return isPartOfHost(link);	
+				} else {
+					return false;
+				}
+				
 			}
 			String domainInCurrentLink = domainMatcher.group(2);	
 			System.out.println("Analyzer: isPartOfHost: domain is: " + domainInCurrentLink);
