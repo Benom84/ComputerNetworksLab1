@@ -29,7 +29,6 @@ public class ClientRequest {
 	private String responseStatusCode;
 	private String responseHttpVersion;
 	private String[] parsedRequest;
-	BufferedReader inputBuffer;
 	//private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
 	private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
@@ -108,6 +107,7 @@ public class ClientRequest {
 
 			// Read Body
 			StringBuilder BodyResponse = new StringBuilder();
+			BufferedReader inputBuffer;
 			int contentLength = 0;
 			if (responseHeaderFields.containsKey("Content-Length")) {
 				contentLength = Integer.parseInt(responseHeaderFields.get("Content-Length"));
@@ -117,20 +117,20 @@ public class ClientRequest {
 				if ((contentLength > 0) && (requestType == getRequest)) {
 					System.out.println("ClientRequest: is get request with content length: " + url);
 					inputBuffer = new BufferedReader(IR);
-					String line = inputBuffer.readLine();
 					//System.out.println("Got Here!!");
-                    //int index = 1;
+                    int singleChar = 0;
                     try {
-						socket.setSoTimeout(10000);
-                        while (line != null && inputBuffer.ready()) {
-                            BodyResponse.append(line);
-                            line = inputBuffer.readLine();
+						socket.setSoTimeout(2000);
+                    	singleChar = inputBuffer.read();
+                        while (singleChar != -1 || inputBuffer.ready()) {
+                            BodyResponse.append((char)singleChar);
+                            singleChar = inputBuffer.read();
                             //index++;
                             //System.out.println(line);
                         }
 
                     }catch(SocketTimeoutException e){
-                        System.out.println("TimeOut occurred while reading response body.");
+                        System.out.println("TimeOut occurred while reading response body. Last char is: " + singleChar);
                     }
 					//System.out.println("Got Here!!");
 					body = BodyResponse.toString();
@@ -145,7 +145,8 @@ public class ClientRequest {
 				//TODO: delete this
 				System.out.println("!!!!!!!!!!We have chunk data!");
 				inputBuffer = new BufferedReader(IR);
-				body = readChunkedData();
+				socket.setSoTimeout(2000);
+				body = readChunkedData(inputBuffer);
 
 			}else{
 				System.out.println("Error Reading body!");
@@ -237,7 +238,7 @@ public class ClientRequest {
 		}
 		return result;
 	}
-	private String readChunkedData() throws IOException {
+	private String readChunkedData(BufferedReader inputBuffer) throws IOException {
 		StringBuilder SB = new StringBuilder();
 		while(true) {
 			String line = inputBuffer.readLine();

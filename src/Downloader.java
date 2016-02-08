@@ -75,6 +75,9 @@ public class Downloader implements Runnable {
 			return;
 		}
 
+		// Update the RTT statistics
+		parentCrawler.addRTT(clientRequest.getRTTtime());
+		
 		// Check the response
 		String response = clientRequest.getResponseStatusCode(); 
 		if (response.equals("200")) {
@@ -142,7 +145,10 @@ public class Downloader implements Runnable {
 
 	private boolean isURLFullHTTP(String newURL) {
 
-		return newURL.substring(0, 4).equalsIgnoreCase("http");
+		if (newURL.length() > 7)
+			return newURL.substring(0, 7).equalsIgnoreCase("http://");
+		else
+			return false;
 	}
 
 	private String getFileTypeFromURL(String urlToDownload) {
@@ -153,6 +159,7 @@ public class Downloader implements Runnable {
 		if (domainMatcher.find()) {
 			//System.out.println("Downloader: getFileTypeFromURL: Found Match");
 			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
+				System.out.println("Downloader: getFileTypeFromURL: is the url to recheck is: " + urlToDownload);
 				String url = urlToDownload + "/";
 				getFileTypeFromURL(url);
 			}

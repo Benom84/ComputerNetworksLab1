@@ -50,11 +50,15 @@ public class Analyzer implements Runnable {
 
 		Set<String> allLinksInHtml = getLinksFromHtml(currentHtmlToParse.GetHTML());
 		for (String currentLink : allLinksInHtml) {
+			currentLink = fixEncoding(currentLink);
 			try {
 				
 				System.out.println("Analyzer: parseHTML: currentLink is: " + currentLink);
 				if (isURLRelative(currentLink)) {
 					System.out.println("Analyzer: parseHTML: currentLink is relative");
+					if (!currentLink.startsWith("/")) {
+						currentLink = "/" + currentLink;
+					}
 					parentCrawler.addUrlToDownload(currentHtmlToParse.GetSource() + currentLink);	
 				}
 				else {
@@ -75,6 +79,12 @@ public class Analyzer implements Runnable {
 		}
 
 		htmlContent = null;
+	}
+
+	private String fixEncoding(String currentLink) {
+		String fixedLink = currentLink.replaceAll("%3a", ":");
+		fixedLink = fixedLink.replaceAll("%2f", "/");
+		return fixedLink;
 	}
 
 	private boolean isPartOfHost(String currentLink) {
@@ -115,7 +125,6 @@ public class Analyzer implements Runnable {
 
 	public Set<String> getLinksFromHtml(String HTMLPage) throws IOException {
 
-		//System.out.println("Analyzer is parsing: " + HTMLPage);
 		Pattern linkPattern = Pattern.compile("href= *' *(.*?)'|href= *\" *(.*?)\"|src= *' *(.*?)'");
 		Matcher pageMatcher = linkPattern.matcher(HTMLPage);
 		Set<String> links = new HashSet<>();
@@ -180,8 +189,53 @@ public class Analyzer implements Runnable {
 
 	private boolean isURLRelative(String url) {
 
+
 		if (url.trim().length() > 0) {
-			return url.substring(0, 1).equalsIgnoreCase("/");	
+			url = url.trim();
+			int length = url.length();
+			// If the url starts with http://
+			if (length > 4) {
+				if (url.substring(0, 5).equalsIgnoreCase("http:")) {
+					return false;
+				}
+			}
+			
+			if (length > 5) {
+				if (url.substring(0, 6).equalsIgnoreCase("https:")) {
+					return false;
+				}
+			}
+
+			
+
+
+			int indexOfSlash = url.indexOf('/');
+			if (indexOfSlash == -1) {
+				//url does not contain "/"
+				return true;
+			} else if (indexOfSlash == 0) {
+				// url begins with "/"
+				return true;
+			} else {
+				String firstPart = url.substring(0, indexOfSlash);
+				if (firstPart.contains(".")) {
+					// url is ada.ada/awgferg.html
+					return false;
+				} else {
+					// url is images/asfas...
+					return true;
+				}	
+			}
+			
+
+			
+			
+			
+			
+			
+			
+
+
 		}
 
 		return false;
