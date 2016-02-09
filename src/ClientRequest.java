@@ -15,22 +15,20 @@ public class ClientRequest {
 	final static String headRequest = "HEAD ";
 	final static int port = 80;
 	final static String CRLF = "\r\n";
-	private String headers;
 	private String body;
 	public String host;
 	private String location;
-	private String requestType;
 	private long timeOfRttInMilliseconds;
 
 	final static String newLine = System.lineSeparator();
 	public HashMap<String, String> responseHeaderFields;
-	private String unparsedResponse;
+
 	private String responseStatus;
 	private String responseStatusCode;
 	private String responseHttpVersion;
 	private String[] parsedRequest;
 	//private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
-	private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
+	//private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
 
 	public static void main(String[] args) throws IOException {
 
@@ -52,7 +50,6 @@ public class ClientRequest {
 	public ClientRequest(String url, String requestType) throws IOException {
 
 		parseURL(url);
-		this.requestType = requestType;
 		Socket socket = new Socket();
 		try {
 			System.out.println("Connecting socket to: " + host);
@@ -84,7 +81,6 @@ public class ClientRequest {
 			InputStreamReader IR = new InputStreamReader(socket.getInputStream());
 
 			System.out.println("ClientRequest: Reading header.");
-			char[] buffer = new char[1024];
 			int indexOfBuffer = 0;
 			StringBuilder HeaderResponse = new StringBuilder();
 
@@ -156,7 +152,7 @@ public class ClientRequest {
 		}catch (Exception e){
 			System.out.println("Failed to connect to " + url);
 			timeOfRttInMilliseconds = 0;
-			e.printStackTrace();
+			//e.printStackTrace();
 		} finally {
 
 			if (socket != null)
@@ -165,8 +161,6 @@ public class ClientRequest {
 	}
 
 	private void parseResponse(String unparsedResponse){
-
-		this.unparsedResponse = unparsedResponse;
 
 		// Divide the string to lines
 		String[] requestLines = unparsedResponse.split(newLine);

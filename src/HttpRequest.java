@@ -1,10 +1,10 @@
 import java.io.* ;
 import java.net.* ;
-import java.util.Arrays;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
 final class HttpRequest implements Runnable
@@ -14,10 +14,8 @@ final class HttpRequest implements Runnable
 	final static int CHUNCKED_BYTES = 1;
 	private File rootDirectory;
 	private File defaultPage;
-	private int threadNumber;
 	private SynchronizedQueue<Socket> socketRequestsQueue;
 	public String fullPathForFile;
-	private String[] requestUrlAndBody;
 	private Crawler serverCrawler;
 
 
@@ -27,7 +25,6 @@ final class HttpRequest implements Runnable
 		this.rootDirectory = rootDirectory;
 		this.defaultPage = defaultPage;
 		this.socketRequestsQueue = socketRequestsQueue;
-		this.threadNumber = threadNumber;
 		this.serverCrawler = crawler;
 	}
 
@@ -168,35 +165,10 @@ final class HttpRequest implements Runnable
 					bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
 				}else{
 
-
-					String domain = htmlRequest.parametersInRequestBody.get("Domain");
-					boolean ignoreRobots = false;
-					boolean performPortScan = false;
-
-					if(htmlRequest.parametersInRequestBody.containsKey("portscan")){
-						performPortScan = true;
-					}
-					if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
-						ignoreRobots = true;
-					}
-					System.out.println("HttpRequest is configuring Crawler.");
-					boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
-					System.out.println("HttpRequest is configuring Crawler. Results: " + isConfigureSucceeded);
-					if (isConfigureSucceeded) {
-						bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
-						//Thread serverCrawlerThread = new Thread(serverCrawler);
-						//serverCrawlerThread.start();
-					} else {
-						bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
-					}
-
+					bodyInBytes = activateCrawler(htmlRequest);
 					Thread crawlerThread = new Thread(serverCrawler);
 					crawlerThread.start();
-					System.out.println("Domain is: " + domain);
-					System.out.println("Perform port scan: " + performPortScan);
-					System.out.println("Ignore robots.txt: " + ignoreRobots);
 				}
-
 			}
 			else{
 				bodyInBytes = null;
@@ -221,10 +193,44 @@ final class HttpRequest implements Runnable
 		return response200;
 	}
 	
+	private byte[] activateCrawler(HtmlRequest htmlRequest) throws IOException {
+		
+		byte[] bodyInBytes;
+		String domain = htmlRequest.parametersInRequestBody.get("Domain");
+		boolean ignoreRobots = false;
+		boolean performPortScan = false;
+
+		if(htmlRequest.parametersInRequestBody.containsKey("portscan")){
+			performPortScan = true;
+		}
+		if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
+			ignoreRobots = true;
+		}
+		System.out.println("HttpRequest is configuring Crawler.");
+		boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
+		System.out.println("HttpRequest is configuring Crawler. Results: " + isConfigureSucceeded);
+		if (isConfigureSucceeded) {
+			bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
+			System.out.println("Domain is: " + domain);
+			System.out.println("Perform port scan: " + performPortScan);
+			System.out.println("Ignore robots.txt: " + ignoreRobots);
+			//Thread serverCrawlerThread = new Thread(serverCrawler);
+			//serverCrawlerThread.start();
+		} else {
+			bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
+		}
+		
+		return bodyInBytes;
+
+	}
+
 	private byte[] readFileForResponse(HtmlRequest htmlRequest) throws IOException {
 
-		if(htmlRequest.requestedFile.equals("/")){
+		System.out.println("Requested File is: " + htmlRequest.requestedFile + " and default page is " + defaultPage.getName());
+		if(htmlRequest.requestedFile.equals("/") || htmlRequest.requestedFile.equals("/" + defaultPage.getName())){
 			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
+			System.out.println("preparing default page");
+			return prepareDefaultPage();
 		}else{
 			fullPathForFile = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
 		}
@@ -237,6 +243,63 @@ final class HttpRequest implements Runnable
 		bis.close();
 		
 		return buffer;
+	}
+
+	private byte[] prepareDefaultPage() {
+		String head = "<!doctype html><html lang=\"en\"><head><title> Crawler HTML site </title></head>"
+				+ "<link href=\"css/style.css\" rel=\"stylesheet\" /><body><div class=\"header\"><h1>Crawler</h1></div>";
+		String form;
+		if (serverCrawler.isBusy()) {
+			form = "<div class=\"crawlerAnswer\"><h2>Crawler is already running</h2></div>";
+		} else {
+			form = "<div class=\"crawlerForm\"><form id=\"generalform\" method=\"post\" action=\"execResult.html\" class=\"crawlerFormTable\">"
+					+ "<table><tr><td><h3>Enter Domain</h3></td><td><input type=\"text\" name=\"Domain\"></td></tr><tr>"
+					+ "<td><h3><input type=\"checkbox\" name=\"portscan\">Perform full TCP port scan</h3></td></tr><tr>"
+					+ "<td><h3><input type=\"checkbox\" name=\"robots.txt\">Disrespect robots.txt</h3></td></tr>"
+					+ "<tr><td></td><td><input type=\"submit\" value=\"Start Crawler\"></td></tr></table></form></div>";
+		}
+		
+		String resultPages = prepareResultPagesSection();
+		
+		String finish = "</body></html>";
+		String result = head + form + resultPages + finish; 
+		return result.getBytes();
+	}
+
+	private String prepareResultPagesSection() {
+		
+		String resultsPath;
+		try {
+			resultsPath = rootDirectory.getCanonicalPath() + Crawler.RESULTS_PATH_LOCAL;
+		} catch (IOException e) {
+			System.out.println("HTTPRequest: Error root directory" + rootDirectory.toString());
+			return "";
+		}
+		
+		System.out.println("PrepareResultPagesSection: path is: " + resultsPath);
+		StringBuilder result = new StringBuilder(); 
+		result.append("<div class=\"connectedDomains\"><ul>");
+		File resultsFolder = new File(resultsPath);
+		if (resultsFolder.exists() && resultsFolder.isDirectory()) {
+			File[] allFiles = resultsFolder.listFiles();
+			SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy-hh:mm");
+			for (File file : allFiles) {
+				String filename = file.getName();
+				String domain = Crawler.ResultsFilenameToDomain(filename);
+				Date creationDate = Crawler.ResultsFilenameToDate(filename);
+				String linkFormat = domain + "-" + format.format(creationDate);
+				result.append("<li><a href=");
+				result.append(Crawler.RESULTS_PATH_WEB);
+				result.append(filename);
+				result.append(">");
+				result.append(linkFormat);
+				result.append("</a></li>");
+			}
+			
+			result.append("</ul></div>");
+		}
+		
+		return result.toString();
 	}
 
 	private byte[] readFileForResponse(String filepath) throws IOException {
@@ -269,13 +332,15 @@ final class HttpRequest implements Runnable
 
 		// If there is a type it is last
 		String typeInRequest = splitFileRequest[splitFileRequest.length - 1];
-		if (typeInRequest.equals("html") || typeInRequest.equals("htm"))
+		if (typeInRequest.equalsIgnoreCase("html") || typeInRequest.equalsIgnoreCase("htm"))
 			type = "text/html";
-		else if (typeInRequest.equals("bmp") || typeInRequest.equals("png") || typeInRequest.equals("jpg")
-				|| typeInRequest.equals("jpeg") || typeInRequest.equals("gif"))
+		else if (typeInRequest.equalsIgnoreCase("bmp") || typeInRequest.equalsIgnoreCase("png") || typeInRequest.equalsIgnoreCase("jpg")
+				|| typeInRequest.equalsIgnoreCase("jpeg") || typeInRequest.equalsIgnoreCase("gif"))
 			type = "image";
-		else if (typeInRequest.equals("ico"))
+		else if (typeInRequest.equalsIgnoreCase("ico"))
 			type = "icon";
+		else if (typeInRequest.equalsIgnoreCase("css"))
+			type = "text/css";
 
 		return type;
 	}

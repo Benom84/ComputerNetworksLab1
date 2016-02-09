@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,6 +13,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Crawler implements Runnable {
+	public static final String RESULTS_PATH_LOCAL = "\\ScanResults\\";
+	public static final String RESULTS_PATH_WEB = "/ScanResults/";
+	public static final Pattern DOMAIN_PATTERN = Pattern.compile("(^[Hh][Tt][Tt][Pp].*:\\/\\/)?(.*?)(\\/.*)");
 	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
 	protected static final int MAX_PAGES_TO_SEARCH = 100;
 	private static final int MAX_PORTNUMBER_TO_SCAN = 1024;
@@ -26,7 +30,7 @@ public class Crawler implements Runnable {
 	private static List<String> imageExtensionsList;
 	private static List<String> videoExtensionsList;
 	private static List<String> documentExtensionsList;
-	protected Set<String> crawledDomains;
+	protected HashMap<String, String> crawledDomains;
 	protected SynchronizedSet<String> pagesVisited;
 	protected SynchronizedSet<String> externalDomains;
 	private SynchronizedSet<String> internalLinks;
@@ -54,8 +58,7 @@ public class Crawler implements Runnable {
 
 	private int requestCount;
 	private Float sumOfRTT;
-	private static final String resultsFolder = "\\ScanResults\\";
-	public static final Pattern DOMAIN_PATTERN = Pattern.compile("(^[Hh][Tt][Tt][Pp].*:\\/\\/)?(.*?)(\\/.*)");
+
 
 
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
@@ -82,7 +85,7 @@ public class Crawler implements Runnable {
 	}
 
 	private void createResultsFolder() {
-		File resultsFolderFile = new File(rootDir + resultsFolder);
+		File resultsFolderFile = new File(rootDir + RESULTS_PATH_LOCAL);
 		if (!resultsFolderFile.exists()) {
 			resultsFolderFile.mkdirs();
 		}
@@ -112,6 +115,8 @@ public class Crawler implements Runnable {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
 		}
 		this.ignoreRobots = ignoreRobots;
+		//TODO
+		System.out.println("Ignore robots is: " + this.ignoreRobots);
 		this.performPortScan = performPortScan;
 		this.externalDomains = new SynchronizedSet<>();
 		return true;
@@ -184,16 +189,16 @@ public class Crawler implements Runnable {
 			}
 
 			SynchronizedSet<String> pagesFromRobotsFile = null;
-			try {
-				pagesFromRobotsFile = readRobotsFile(targetURL);
-			} catch (IOException e) {
-				System.out.println("Error reading robots file from: " + targetURL);
-				e.printStackTrace();
-			}
+			System.out.println("Reading pages from robots file");
+			pagesFromRobotsFile = readRobotsFile(targetURL +"/robots.txt");
+			System.out.println("Finished Reading pages from robots file");
 			if (pagesFromRobotsFile != null) {
+				System.out.println("Pages from robot file is not null");
 				if (ignoreRobots) {
+					forbiddenPages = new SynchronizedSet<String>();
 					for (String page : pagesFromRobotsFile) {
 						try {
+							System.out.println("Adding forbidden pages to urls to download: " + page);
 							addUrlToDownload(page);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
@@ -207,6 +212,7 @@ public class Crawler implements Runnable {
 			}
 
 			try {
+				System.out.println("Target url is: " + targetURL);
 				addUrlToDownload(targetURL);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -281,7 +287,7 @@ public class Crawler implements Runnable {
 			System.out.println("All threads have joined");
 			System.out.println("Creating results page");
 			createResultPage();
-			
+
 			System.out.println("*************************************************************************************************");
 			System.out.println("Debug results");
 			System.out.println("*************************************************************************************************");
@@ -306,23 +312,57 @@ public class Crawler implements Runnable {
 
 
 	private void readCrawledDomains() {
-		crawledDomains = new HashSet<>();
-		File resultsPath = new File(rootDir + resultsFolder);
+		crawledDomains = new HashMap<String, String>();
+		File resultsPath = new File(rootDir + RESULTS_PATH_LOCAL);
 		if (resultsPath.exists() && resultsPath.isDirectory()) {
 			File[] resultsFiles = resultsPath.listFiles();
 			for (File resultFile : resultsFiles) {
 				String resultFileName = resultFile.getName();
-				resultFileName = resultFileName.substring(0, resultFileName.length() - 25);
 				System.out.println("Result File found for domain: " + resultFileName);
-				crawledDomains.add(resultFileName);
+				String domain = ResultsFilenameToDomain(resultFileName);
+				System.out.println("Domain: " + resultFileName);
+				if (!crawledDomains.containsKey(domain)) {
+					crawledDomains.put(domain, resultFileName);
+				} else {
+					Date currentDate = ResultsFilenameToDate(resultFileName);
+					Date previousDate = ResultsFilenameToDate(crawledDomains.get(domain));
+					if (currentDate != null && previousDate != null) {
+						if (currentDate.after(previousDate)) {
+							crawledDomains.replace(domain, resultFileName);
+						}
+					}
+				}
+				
 			}
 		}
 
 	}
+	
+	public static String ResultsFilenameToDomain(String resultFileName) {
+		int length = resultFileName.length();
+		String domain = resultFileName.substring(0, length - 25);
+		return domain;
+	}
+
+	public static Date ResultsFilenameToDate(String resultsFileName) {
+		
+		// www.morfix.co.il_2016_02_07_17_41_55.html
+		int length = resultsFileName.length();
+		String dateFromFile = resultsFileName.substring(length - 24, length - 5);
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy_MM_dd_hh_mm_ss");
+		try {
+			Date parsedDate = formatter.parse(dateFromFile);
+			return parsedDate;
+		} catch (ParseException e) {
+			e.printStackTrace();
+			System.out.println("Error parsing the date: " + dateFromFile);
+			return null;
+		}
+	}
 
 	private void createResultPage() {
 		String resultPageName = targetURL + "_" + startDate + "_" + startTime + ".html";
-		String resultPath = rootDir + resultsFolder + resultPageName;
+		String resultPath = rootDir + RESULTS_PATH_LOCAL + resultPageName;
 		float averageRTT = sumOfRTT / requestCount;
 		try (Writer writer = new BufferedWriter(new OutputStreamWriter(
 				new FileOutputStream(resultPath), "utf-8"))) {
@@ -346,20 +386,22 @@ public class Crawler implements Runnable {
 			writer.write("<h2>The Domains connected:</h2>");
 			writer.write("<ul>");
 			for (String externalDomain : externalDomains) {
-				if (crawledDomains.contains(externalDomain)) {
-					writer.write("<li><a href=\""+ externalDomain + "\">" + externalDomain + "</a>" + externalDomain + "</li>");
+				if (crawledDomains.containsKey(externalDomain)) {
+					writer.write("<li><a href=/" + crawledDomains.get(externalDomain) + "\">" + externalDomain + "</a>" + externalDomain + "</li>");
 				} else {
 					writer.write("<li>" + externalDomain + "</li>");
 				}
 
 			}
 			writer.write("</ul>");
-			writer.write("</div><br/><div class=\"portScan\">");
+			
 			if (performPortScan) {
+				writer.write("</div><br/><div class=\"portScan\">");
 				writer.write("<h1> Port Scan Results</h1>");
-				writer.write("<h2>" + portScanResults + "</h2>");	
+				writer.write("<h2>" + portScanResults + "</h2>");
+				writer.write("</div>");
 			}
-			writer.write("</div>");
+			
 			writer.write("<br/><div class=\"goBack\">");
 			writer.write("<h3><a href = \"/\">Back To Main Page</a></h3></div>");
 			writer.write("</body></html>");
@@ -372,35 +414,55 @@ public class Crawler implements Runnable {
 	}
 
 
-	private SynchronizedSet<String> readRobotsFile(String targetURL) throws IOException {
+	private SynchronizedSet<String> readRobotsFile(String targetURL) {
 
 		SynchronizedSet<String> result = new SynchronizedSet<String>();
-		ClientRequest connection = new ClientRequest(targetURL, ClientRequest.getRequest);
+		ClientRequest connection;
+		try {
+			connection = new ClientRequest(targetURL, ClientRequest.getRequest);
+		} catch (IOException e1) {
+			System.out.println("Error connecting to: " + targetURL + " to get robots file.");
+			e1.printStackTrace();
+			return null;
+		}
 		//Connection connection = Jsoup.connect(targetURL).userAgent(USER_AGENT);
 		//Document document = connection.get();
 		//System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
+		System.out.println("Robots: " + connection.getResponseStatusCode());
 		if (connection.getResponseStatusCode().equals("200")) {
 			if (connection.getBody() != null) {
+				System.out.println("**********************************************************************");
+				System.out.println(connection.getBody());
+				System.out.println("**********************************************************************");
 				String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
 				for (String url : forbiddenUrls) {
 					if (url.contains("Disallow")) {
 						int startOfSubStringIndex = url.indexOf(" ");
 						String urlToForbiddenList = url.substring(startOfSubStringIndex + 1, url.length());
-						System.out.println("Got the URL (From robots.txt): " + urlToForbiddenList);
+						if (!urlToForbiddenList.startsWith("/")) {
+							urlToForbiddenList = "/" + urlToForbiddenList;
+						}
+						System.out.println("Got the URL (From robots.txt): " + connection.host + urlToForbiddenList);
 						try {
-							result.add(urlToForbiddenList);
+							result.add(connection.host + urlToForbiddenList);
 						} catch (InterruptedException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
 					}
 				}
+
+				return result;
 			}
 
 			//System.out.println(forbiddenUrls.length);
 
+		} else if (connection.getResponseStatusCode().equals("302") || connection.getResponseStatusCode().equals("301")) {
+			String newURL = connection.responseHeaderFields.get("Location");
+			System.out.println("Robots: response was 301/302 so new url is: " + newURL);
+			return readRobotsFile(newURL);
 		}
-		return result;
+		return null;
 	}
 
 
@@ -414,14 +476,13 @@ public class Crawler implements Runnable {
 				Socket socket = new Socket();
 				socket.connect(new InetSocketAddress(targetURL, port), 100);
 				sb.append(port + " ");
-				System.out.println(port + ", ");
+				System.out.print(port + ", ");
 				socket.close();
 			} catch (Exception e) {
 
 			}
 
 		}
-		sb.deleteCharAt(sb.length() - 1);
 		sb.deleteCharAt(sb.length() - 1);
 		System.out.println("Ending port scan");
 		return sb.toString();
@@ -464,12 +525,23 @@ public class Crawler implements Runnable {
 
 	protected boolean addUrlToDownload(String url) throws InterruptedException {
 
-		if (!pagesVisited.contains(url) && !forbiddenPages.contains(url)) {
+		boolean allowedUrl = true;
+		allowedUrl = !pagesVisited.contains(url);
+
+		if (allowedUrl) {
+			for (String forbiddenPage : forbiddenPages) {
+				if (url.startsWith(forbiddenPage)) {
+					allowedUrl = false;
+					break;
+				}
+			}
+		}
+		if (allowedUrl)		{
 			//TODO delete temp
 			int temp = totalWorkLoad.incrementAndGet();
 			System.out.println("#################Workload updated and is now: " + temp);
-			System.out.println("#################urlsToDownload updated and is now: " + urlsToDownload.size());
 			urlsToDownload.put(url);
+			System.out.println("#################urlsToDownload updated and is now: " + urlsToDownload.size());
 			return true;
 		}	else {
 			System.out.println("Crawler: addUrlToDownload: did not add the next url: " + url);
@@ -619,7 +691,7 @@ public class Crawler implements Runnable {
 				return domainMatcher.group(2);
 			}
 		}
-		
+
 		return null;
 	}
 

@@ -104,7 +104,7 @@ public class Downloader implements Runnable {
 						sizeOfFile = clientRequest.getBody().length();
 					}
 					parentCrawler.updatePages(1, sizeOfFile);
-					parentCrawler.UpdatePagesVisited(urlToDownload);
+					//TODO parentCrawler.UpdatePagesVisited(urlToDownload);
 				} catch (InterruptedException e) {
 					System.out.println("Error add html body for " + urlToDownload);
 					e.printStackTrace();
