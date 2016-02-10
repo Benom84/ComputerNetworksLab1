@@ -109,7 +109,7 @@ public class Crawler implements Runnable {
 			return false;
 		}
 
-		this.targetURL = parseURL(targetURL);
+		this.targetURL = ParseURL(targetURL);
 
 		if (this.targetURL.charAt(this.targetURL.length() - 1) == '\\') {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
@@ -122,7 +122,7 @@ public class Crawler implements Runnable {
 		return true;
 	}
 
-	private static String parseURL(String url) {
+	public static String ParseURL(String url) {
 		String parsedURL = "";
 		if (!url.endsWith("/")) {
 			url = url + "/";
@@ -393,10 +393,10 @@ public class Crawler implements Runnable {
 				}
 
 			}
-			writer.write("</ul>");
+			writer.write("</ul></div>");
 			
 			if (performPortScan) {
-				writer.write("</div><br/><div class=\"portScan\">");
+				writer.write("<br/><div class=\"portScan\">");
 				writer.write("<h1> Port Scan Results</h1>");
 				writer.write("<h2>" + portScanResults + "</h2>");
 				writer.write("</div>");

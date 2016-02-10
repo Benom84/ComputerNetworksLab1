@@ -6,6 +6,7 @@ public class HtmlResponse {
 	final static String Description404 = "Not Found";
 	final static String Description501 = "Not Implemented";
 	final static String Description400 = "Bad Request";
+	final static String Description403 = "Forbidden";
 	final static String Description500 = "Internal Sever Error";
 	final static String DefaultHttpVersion = "HTTP/1.0";
 	private String statusLine;
@@ -20,6 +21,8 @@ public class HtmlResponse {
 		case 200: 	responseCodeStatus = Description200;
 					break;
 		case 400: 	responseCodeStatus = Description400;
+					break;
+		case 403:	responseCodeStatus = Description403;
 					break;
 		case 404: 	responseCodeStatus = Description404;
 					break;

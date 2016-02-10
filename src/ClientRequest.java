@@ -219,7 +219,7 @@ public class ClientRequest {
 
 	}
 
-	private HashMap<String, String> getHeaders(String[] headersInString){
+	public HashMap<String, String> getHeaders(String[] headersInString){
 		HashMap<String, String> result =  new HashMap<>();
 		//String[] splitHeaders = headersInString.split(CRLF);
 		for (String line : headersInString)

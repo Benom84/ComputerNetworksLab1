@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.regex.Pattern;
 
+import javax.net.ssl.HostnameVerifier;
+
 final class HttpRequest implements Runnable
 {
 	final static String CRLF = "\r\n";
@@ -70,6 +72,10 @@ final class HttpRequest implements Runnable
 			} else if (!legalRequestType(htmlRequest)) {
 				// The request method is unimplemented
 				responseToClient = respond501(htmlRequest);
+			} else if (directRequestToResultPages(htmlRequest)) {
+				responseToClient = respond403(htmlRequest);
+				System.out.println("Failed on referrer");
+				//responesClient = respond403(htmlRequest);
 			} else {
 				if (!htmlRequest.type.equals("TRACE") && !htmlRequest.type.equals("POST")) {
 					boolean isFileLegal = false;
@@ -136,6 +142,48 @@ final class HttpRequest implements Runnable
 		}
 	}
 
+	private boolean directRequestToResultPages(HtmlRequest htmlRequest) {
+		String filename = htmlRequest.requestedFile;
+		
+		if (filename.length() < Crawler.RESULTS_PATH_WEB.length()) {
+			return false;
+		}
+		
+		if (filename.substring(0, Crawler.RESULTS_PATH_WEB.length()).equalsIgnoreCase(Crawler.RESULTS_PATH_WEB)) {
+			System.out.println("********************************************************");
+			String referrer = null;
+			for (String line : htmlRequest.parsedRequest) {
+				if (line.startsWith("Referer:"))  {
+					System.out.println(line + " EOL!");
+					//Referer: http://xxx.xxx.xxx.xxx/
+					if (line.length() < 16) {
+						return false;
+					}
+					
+					String[] splitReferer = line.substring(16, line.length()).split("/");
+					for (String string : splitReferer) {
+						System.out.println("splitReferer: " + string);
+					}
+					
+					System.out.println("Comparing to: " + defaultPage.getName());
+					if (splitReferer.length < 2 || splitReferer[1].equalsIgnoreCase(defaultPage.getName())) {
+						return false;
+					}
+				}
+					
+			}
+			System.out.println("********************************************************");
+			
+			//System.out.println("Referrer is: " + referrer);
+			//TODO
+			if (referrer == null) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
 	private boolean legalRequestType(HtmlRequest htmlRequest) {
 
 		if (htmlRequest.type == null) {
@@ -165,9 +213,15 @@ final class HttpRequest implements Runnable
 					bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
 				}else{
 
-					bodyInBytes = activateCrawler(htmlRequest);
-					Thread crawlerThread = new Thread(serverCrawler);
-					crawlerThread.start();
+					String crawlerInputCheckResults = checkCrawlerInput(htmlRequest);
+					if (crawlerInputCheckResults == null) {
+						bodyInBytes = activateCrawler(htmlRequest);
+						Thread crawlerThread = new Thread(serverCrawler);
+						crawlerThread.start();	
+					} else {
+						bodyInBytes = prepareDefaultPage(crawlerInputCheckResults);
+					}
+					
 				}
 			}
 			else{
@@ -184,8 +238,11 @@ final class HttpRequest implements Runnable
 		
 		if (!htmlRequest.type.equals("POST")) {
 			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
+			System.out.println("Requested file is: " + htmlRequest.requestedFile + " and type is: " +contentType);
 		} else {
-			contentType = getContentTypeFromFile("");
+			//contentType = getContentTypeFromFile("");
+			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
+			System.out.println("Requested file is: " + htmlRequest.requestedFile + " and type is: " +contentType);
 		}
 			
 		response200.setContentTypeLine(contentType);
@@ -193,6 +250,36 @@ final class HttpRequest implements Runnable
 		return response200;
 	}
 	
+
+	private String checkCrawlerInput(HtmlRequest htmlRequest) {
+		
+		String result = null;
+		String domain = htmlRequest.parametersInRequestBody.get("Domain");
+		String domainFound = Crawler.ParseURL(domain);
+
+		if (domainFound.charAt(domainFound.length() - 1) == '\\') {
+			domainFound= domainFound.substring(0, domainFound.length() - 1);
+		}
+		
+		try {
+			ClientRequest clientRequest = new ClientRequest(domainFound, ClientRequest.getRequest);
+			if (clientRequest.responseHeaderFields == null) {
+				return "Error connecting to: " + domain;
+			}
+			System.out.println("checkCrawlerInput: ClientRequest returned: ");
+			
+			for (String key : clientRequest.responseHeaderFields.keySet()) {
+				System.out.println(key + ":\t\t" + clientRequest.responseHeaderFields.get(key));
+			}
+		} catch (Exception e) {
+			System.out.println("checkCrawlerInput: clientRequest generated error.");
+			result = "Error connecting to: " + domain;
+			e.printStackTrace();
+		}
+
+		return result;
+	}
+
 	private byte[] activateCrawler(HtmlRequest htmlRequest) throws IOException {
 		
 		byte[] bodyInBytes;
@@ -210,14 +297,14 @@ final class HttpRequest implements Runnable
 		boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
 		System.out.println("HttpRequest is configuring Crawler. Results: " + isConfigureSucceeded);
 		if (isConfigureSucceeded) {
-			bodyInBytes = readFileForResponse("/Crawler/CrawlerIsRunning.html");
+			bodyInBytes = prepareDefaultPage("Crawler started succesfuly");
 			System.out.println("Domain is: " + domain);
 			System.out.println("Perform port scan: " + performPortScan);
 			System.out.println("Ignore robots.txt: " + ignoreRobots);
 			//Thread serverCrawlerThread = new Thread(serverCrawler);
 			//serverCrawlerThread.start();
 		} else {
-			bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
+			bodyInBytes = prepareDefaultPage("Crawler is already running");
 		}
 		
 		return bodyInBytes;
@@ -230,7 +317,7 @@ final class HttpRequest implements Runnable
 		if(htmlRequest.requestedFile.equals("/") || htmlRequest.requestedFile.equals("/" + defaultPage.getName())){
 			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
 			System.out.println("preparing default page");
-			return prepareDefaultPage();
+			return prepareDefaultPage(null);
 		}else{
 			fullPathForFile = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
 		}
@@ -245,11 +332,17 @@ final class HttpRequest implements Runnable
 		return buffer;
 	}
 
-	private byte[] prepareDefaultPage() {
+	private byte[] prepareDefaultPage(String message) {
 		String head = "<!doctype html><html lang=\"en\"><head><title> Crawler HTML site </title></head>"
 				+ "<link href=\"css/style.css\" rel=\"stylesheet\" /><body><div class=\"header\"><h1>Crawler</h1></div>";
 		String form;
-		if (serverCrawler.isBusy()) {
+		if (message != null) {
+			form = "<div class=\"crawlerAnswer\"><h2>" + message + "</h2>"
+					+ "<a href=\"/\"><h3>Back to homepage</h3></a></div>";
+		
+			
+		}
+		else if (serverCrawler.isBusy()) {
 			form = "<div class=\"crawlerAnswer\"><h2>Crawler is already running</h2></div>";
 		} else {
 			form = "<div class=\"crawlerForm\"><form id=\"generalform\" method=\"post\" action=\"execResult.html\" class=\"crawlerFormTable\">"
@@ -282,7 +375,7 @@ final class HttpRequest implements Runnable
 		File resultsFolder = new File(resultsPath);
 		if (resultsFolder.exists() && resultsFolder.isDirectory()) {
 			File[] allFiles = resultsFolder.listFiles();
-			SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy-hh:mm");
+			SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy-HH:mm");
 			for (File file : allFiles) {
 				String filename = file.getName();
 				String domain = Crawler.ResultsFilenameToDomain(filename);
@@ -391,6 +484,18 @@ final class HttpRequest implements Runnable
 		response400.setEntityBody(body400.getBytes());
 
 		return response400;
+	}
+	
+	private HtmlResponse respond403(HtmlRequest htmlRequest) {
+		HtmlResponse response403 = new HtmlResponse();
+
+		response403.setStatus(htmlRequest.httpVersion, 403);
+		response403.setContentTypeLine("text/html");
+		String body403 = "<HTML><HEAD><TITLE>403 Forbidden</TITLE></HEAD>" +
+				"<BODY><H1>Forbidden Request</H1><H2>How can something so wrong feel so right?</H2></BODY></HTML>";
+		response403.setEntityBody(body403.getBytes());
+
+		return response403;
 	}
 
 	private boolean checkIfRequestedFileLegal(HtmlRequest htmlRequest) throws IOException {
