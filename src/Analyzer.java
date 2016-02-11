@@ -32,11 +32,9 @@ public class Analyzer implements Runnable {
 			}
 
 			if (htmlContent != null) {
-				//System.out.println("Activating parseHTML");
 				try {
 					parseHtml();
-					int temp = parentCrawler.lowerWorkload();
-					System.out.println("#################Analyzer finished analyzing and workload is now: " + temp);
+					parentCrawler.lowerWorkload();
 				} catch (IOException e) {
 					System.out.println("Could not parseHTML.");
 				}
@@ -53,9 +51,7 @@ public class Analyzer implements Runnable {
 			currentLink = fixEncoding(currentLink);
 			try {
 				
-				System.out.println("Analyzer: parseHTML: currentLink is: " + currentLink);
 				if (isURLRelative(currentLink)) {
-					System.out.println("Analyzer: parseHTML: currentLink is relative");
 					if (!currentLink.startsWith("/")) {
 						currentLink = "/" + currentLink;
 					}
@@ -63,16 +59,12 @@ public class Analyzer implements Runnable {
 				}
 				else {
 					if (isPartOfHost(currentLink)) {
-						System.out.println("Analyzer: parseHTML: currentLink is non relative but part of the domain");
 						parentCrawler.addUrlToDownload(currentLink);
 						parentCrawler.addUrlToInternal(currentLink);
 					} else {
 						parentCrawler.addURLToExternal(currentLink);
-						System.out.println("Analyzer: parseHTML: currentLink is non relative and not part of the domain");
 					}
-
 				}
-
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -89,10 +81,8 @@ public class Analyzer implements Runnable {
 
 	private boolean isPartOfHost(String currentLink) {
 
-		//System.out.println("Analyzer: isPartOfHost: got link: " + currentLink);
 		Matcher domainMatcher = Crawler.DOMAIN_PATTERN.matcher(currentLink);
 		if (domainMatcher.find()) {
-			System.out.println("Analyzer: isPartOfHost: domain matcher found");
 			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
 				if (!currentLink.endsWith("/")) {
 					String link = currentLink + "/";
@@ -103,24 +93,16 @@ public class Analyzer implements Runnable {
 				
 			}
 			String domainInCurrentLink = domainMatcher.group(2);	
-			System.out.println("Analyzer: isPartOfHost: domain is: " + domainInCurrentLink);
 			if (domainInCurrentLink != null) {
 				Pattern domainPattern = Pattern.compile("(.*\\.)?("+ parentCrawler.targetURL + ")");
-				System.out.println("Analyzer: isPartOfHost: domain pattern is: " + domainPattern.toString());
 				Matcher matcher = domainPattern.matcher(domainInCurrentLink);
 				if (matcher.find()) {
-					System.out.println("Analyzer: isPartOfHost: domain pattern found");
 					return true; 
 				} 
 			} 
 		}
 
-
 		return false;
-
-
-
-
 	}
 
 	public Set<String> getLinksFromHtml(String HTMLPage) throws IOException {
@@ -138,25 +120,19 @@ public class Analyzer implements Runnable {
 					linkFound = removeParamsFromLink(linkFound);
 					if(isLinkValid(linkFound)) {
 						links.add(linkFound);
-						System.out.println("Link from analyzer: " + linkFound);
-					}else{
-						System.out.println("Excluded link from analyzer: " + linkFound);
 					}
 					index++;
 					break;
 				}
 			}
-			
-			//System.out.println("Link from analyzer: " + pageMatcher.group(2));
 		}
 
-		System.out.println("Number of links extracted: " + index);
+		System.out.println("Analyzer: Number of links extracted for page: " + htmlContent.GetURLSource() + " is: " + index);
 		return links;
 	}
 	private String removeParamsFromLink(String linkFound) {
 		int questionMarkIndex = linkFound.indexOf("?");
 		if (questionMarkIndex > -1) {
-			System.out.println("Analyzer: removeParamsFromLink: returning " + linkFound.substring(0, questionMarkIndex));
 			return linkFound.substring(0, questionMarkIndex);
 		}
 		return linkFound;
@@ -226,16 +202,6 @@ public class Analyzer implements Runnable {
 					return true;
 				}	
 			}
-			
-
-			
-			
-			
-			
-			
-			
-
-
 		}
 
 		return false;

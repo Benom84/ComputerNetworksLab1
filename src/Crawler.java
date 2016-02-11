@@ -1,9 +1,6 @@
-
-
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -16,7 +13,6 @@ public class Crawler implements Runnable {
 	public static final String RESULTS_PATH_LOCAL = "\\ScanResults\\";
 	public static final String RESULTS_PATH_WEB = "/ScanResults/";
 	public static final Pattern DOMAIN_PATTERN = Pattern.compile("(^[Hh][Tt][Tt][Pp].*:\\/\\/)?(.*?)(\\/.*)");
-	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
 	protected static final int MAX_PAGES_TO_SEARCH = 100;
 	private static final int MAX_PORTNUMBER_TO_SCAN = 1024;
 	private static String maxDownloadersKey = "maxDownloaders";
@@ -50,7 +46,6 @@ public class Crawler implements Runnable {
 	// Links from the same domain
 	private Boolean isCrawlerRunning = false;
 	private String portScanResults;
-	private String allowedHost;
 	private AtomicInteger totalWorkLoad;
 	private String startDate;
 	private String startTime;
@@ -64,7 +59,6 @@ public class Crawler implements Runnable {
 	public Crawler(HashMap<String, String> crawlerConfiguration) {
 
 		rootDir = crawlerConfiguration.get(rootKey);
-		System.out.println("ROOT DIR IS: " + rootDir);
 		createResultsFolder();
 		maxDownloaders = Integer.parseInt(crawlerConfiguration.get(maxDownloadersKey));
 		maxAnalyzers = Integer.parseInt(crawlerConfiguration.get(maxAnalyzersKey));
@@ -115,8 +109,6 @@ public class Crawler implements Runnable {
 			this.targetURL = this.targetURL.substring(0, this.targetURL.length() - 1);
 		}
 		this.ignoreRobots = ignoreRobots;
-		//TODO
-		System.out.println("Ignore robots is: " + this.ignoreRobots);
 		this.performPortScan = performPortScan;
 		this.externalDomains = new SynchronizedSet<>();
 		return true;
@@ -128,7 +120,6 @@ public class Crawler implements Runnable {
 			url = url + "/";
 		}
 
-		System.out.println("Crawler: ParseUrl: url is " + url);
 		try {
 			Matcher matcher = DOMAIN_PATTERN.matcher(url);
 			if (matcher.find()) {
@@ -138,7 +129,6 @@ public class Crawler implements Runnable {
 				if (indexOfFirstSlash > 0) {
 					parsedURL = parsedURL.substring(0, indexOfFirstSlash);
 				}
-				System.out.println("Host is: " + parsedURL);
 
 			}
 
@@ -189,16 +179,12 @@ public class Crawler implements Runnable {
 			}
 
 			SynchronizedSet<String> pagesFromRobotsFile = null;
-			System.out.println("Reading pages from robots file");
 			pagesFromRobotsFile = readRobotsFile(targetURL +"/robots.txt");
-			System.out.println("Finished Reading pages from robots file");
 			if (pagesFromRobotsFile != null) {
-				System.out.println("Pages from robot file is not null");
 				if (ignoreRobots) {
 					forbiddenPages = new SynchronizedSet<String>();
 					for (String page : pagesFromRobotsFile) {
 						try {
-							System.out.println("Adding forbidden pages to urls to download: " + page);
 							addUrlToDownload(page);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
@@ -212,8 +198,8 @@ public class Crawler implements Runnable {
 			}
 
 			try {
-				System.out.println("Target url is: " + targetURL);
 				addUrlToDownload(targetURL);
+				addUrlToInternal(targetURL);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -242,34 +228,21 @@ public class Crawler implements Runnable {
 
 				synchronized (totalWorkLoad) {
 					try {
-						System.out.println("###########################################Workload is not 0");
 						totalWorkLoad.wait();
 					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}	
 				}
 			}
-			System.out.println("###########################################Workload is 0! Actual size: " + totalWorkLoad.intValue());
-			System.out.println("###########################################Signaling analyzers to shutdown.");
+
 			for (Analyzer analyzer : allAnalyzers) {
 				analyzer.shutdown();
 			}
-			System.out.println("###########################################Signaling downloaders to shutdown.");
+
 			for (Downloader downloader : allDownloaders) {
 				downloader.shutdown();
 			}
-			/*
-			System.out.println("###########################################Signaling downloaders to wakeup.");
-			synchronized (urlsToDownload) {
-				urlsToDownload.notifyAll();
-			}
-
-			System.out.println("###########################################Signaling analyzers to wakeup.");
-			synchronized (htmlToAnalyze) {
-				htmlToAnalyze.notifyAll();
-			}
-			 */
+			
 			try {
 				for (Thread thread : analyzerThreads) {
 					thread.interrupt();
@@ -280,36 +253,13 @@ public class Crawler implements Runnable {
 					thread.join();
 				}
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
-			System.out.println("All threads have joined");
-			System.out.println("Creating results page");
 			createResultPage();
-
-			System.out.println("*************************************************************************************************");
-			System.out.println("Debug results");
-			System.out.println("*************************************************************************************************");
-			System.out.println("Internal Links");
-			for (String link : internalLinks) {
-				System.out.println(link);
-			}
-			System.out.println("*************************************************************************************************");
-			System.out.println("External Links");
-			for (String link : externalLinks) {
-				System.out.println(link);
-			}
-			System.out.println("*************************************************************************************************");
-			System.out.println("External Domains");
-			for (String link : externalDomains) {
-				System.out.println(link);
-			}
-			System.out.println("*************************************************************************************************");
 			isCrawlerRunning = false;
 		}
 	}
-
 
 	private void readCrawledDomains() {
 		crawledDomains = new HashMap<String, String>();
@@ -318,26 +268,24 @@ public class Crawler implements Runnable {
 			File[] resultsFiles = resultsPath.listFiles();
 			for (File resultFile : resultsFiles) {
 				String resultFileName = resultFile.getName();
-				System.out.println("Result File found for domain: " + resultFileName);
 				String domain = ResultsFilenameToDomain(resultFileName);
-				System.out.println("Domain: " + resultFileName);
+				String fullResultWebPath = RESULTS_PATH_WEB + resultFileName;
 				if (!crawledDomains.containsKey(domain)) {
-					crawledDomains.put(domain, resultFileName);
+					crawledDomains.put(domain, fullResultWebPath);
 				} else {
 					Date currentDate = ResultsFilenameToDate(resultFileName);
 					Date previousDate = ResultsFilenameToDate(crawledDomains.get(domain));
 					if (currentDate != null && previousDate != null) {
 						if (currentDate.after(previousDate)) {
-							crawledDomains.replace(domain, resultFileName);
+							crawledDomains.remove(domain);
+							crawledDomains.put(domain, fullResultWebPath);
 						}
 					}
 				}
-				
 			}
 		}
-
 	}
-	
+
 	public static String ResultsFilenameToDomain(String resultFileName) {
 		int length = resultFileName.length();
 		String domain = resultFileName.substring(0, length - 25);
@@ -345,11 +293,11 @@ public class Crawler implements Runnable {
 	}
 
 	public static Date ResultsFilenameToDate(String resultsFileName) {
-		
+
 		// www.morfix.co.il_2016_02_07_17_41_55.html
 		int length = resultsFileName.length();
 		String dateFromFile = resultsFileName.substring(length - 24, length - 5);
-		SimpleDateFormat formatter = new SimpleDateFormat("yyyy_MM_dd_hh_mm_ss");
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
 		try {
 			Date parsedDate = formatter.parse(dateFromFile);
 			return parsedDate;
@@ -387,21 +335,20 @@ public class Crawler implements Runnable {
 			writer.write("<ul>");
 			for (String externalDomain : externalDomains) {
 				if (crawledDomains.containsKey(externalDomain)) {
-					writer.write("<li><a href=/" + crawledDomains.get(externalDomain) + "\">" + externalDomain + "</a>" + externalDomain + "</li>");
+					writer.write("<li><a href=" + crawledDomains.get(externalDomain) + ">" + externalDomain + "</a></li>");
 				} else {
 					writer.write("<li>" + externalDomain + "</li>");
 				}
-
 			}
 			writer.write("</ul></div>");
-			
+
 			if (performPortScan) {
 				writer.write("<br/><div class=\"portScan\">");
 				writer.write("<h1> Port Scan Results</h1>");
 				writer.write("<h2>" + portScanResults + "</h2>");
 				writer.write("</div>");
 			}
-			
+
 			writer.write("<br/><div class=\"goBack\">");
 			writer.write("<h3><a href = \"/\">Back To Main Page</a></h3></div>");
 			writer.write("</body></html>");
@@ -412,7 +359,6 @@ public class Crawler implements Runnable {
 		}
 
 	}
-
 
 	private SynchronizedSet<String> readRobotsFile(String targetURL) {
 
@@ -425,15 +371,9 @@ public class Crawler implements Runnable {
 			e1.printStackTrace();
 			return null;
 		}
-		//Connection connection = Jsoup.connect(targetURL).userAgent(USER_AGENT);
-		//Document document = connection.get();
-		//System.out.println("Debbug: Response code is " + connection.getResponseStatusCode());
-		System.out.println("Robots: " + connection.getResponseStatusCode());
+
 		if (connection.getResponseStatusCode().equals("200")) {
 			if (connection.getBody() != null) {
-				System.out.println("**********************************************************************");
-				System.out.println(connection.getBody());
-				System.out.println("**********************************************************************");
 				String[] forbiddenUrls = connection.getBody().split(ClientRequest.CRLF);
 				for (String url : forbiddenUrls) {
 					if (url.contains("Disallow")) {
@@ -446,7 +386,6 @@ public class Crawler implements Runnable {
 						try {
 							result.add(connection.host + urlToForbiddenList);
 						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
 					}
@@ -454,12 +393,8 @@ public class Crawler implements Runnable {
 
 				return result;
 			}
-
-			//System.out.println(forbiddenUrls.length);
-
 		} else if (connection.getResponseStatusCode().equals("302") || connection.getResponseStatusCode().equals("301")) {
 			String newURL = connection.responseHeaderFields.get("Location");
-			System.out.println("Robots: response was 301/302 so new url is: " + newURL);
 			return readRobotsFile(newURL);
 		}
 		return null;
@@ -470,13 +405,11 @@ public class Crawler implements Runnable {
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("Open ports: ");
-		System.out.println("Starting port scan on: " + targetURL);
 		for (int port = 1; port <= MAX_PORTNUMBER_TO_SCAN; port++) {
 			try {
 				Socket socket = new Socket();
 				socket.connect(new InetSocketAddress(targetURL, port), 100);
 				sb.append(port + " ");
-				System.out.print(port + ", ");
 				socket.close();
 			} catch (Exception e) {
 
@@ -484,7 +417,6 @@ public class Crawler implements Runnable {
 
 		}
 		sb.deleteCharAt(sb.length() - 1);
-		System.out.println("Ending port scan");
 		return sb.toString();
 	}
 
@@ -506,9 +438,6 @@ public class Crawler implements Runnable {
 
 	}
 
-
-
-
 	/**
 	 * Returns the next URL to visit (in the order that they were found). We also do a check to make
 	 * sure this method doesn't return a URL that has already been visited.
@@ -519,6 +448,7 @@ public class Crawler implements Runnable {
 	protected String nextUrlToDownload() throws InterruptedException {
 		String nextUrl;
 		nextUrl = this.urlsToDownload.take();
+		System.out.println("Downloader took next url to download. Current queue size: " + urlsToDownload.size());
 		this.pagesVisited.add(nextUrl);
 		return nextUrl;
 	}
@@ -537,36 +467,25 @@ public class Crawler implements Runnable {
 			}
 		}
 		if (allowedUrl)		{
-			//TODO delete temp
-			int temp = totalWorkLoad.incrementAndGet();
-			System.out.println("#################Workload updated and is now: " + temp);
+			totalWorkLoad.incrementAndGet();
 			urlsToDownload.put(url);
-			System.out.println("#################urlsToDownload updated and is now: " + urlsToDownload.size());
 			return true;
-		}	else {
-			System.out.println("Crawler: addUrlToDownload: did not add the next url: " + url);
-		}
-
-
+		}	
+		
 		return false;
 	}
 
 	protected HTMLContent nextHtmlToAnalyze() throws InterruptedException {
-		System.out.println("Crawler: Requested next html to analyze.");
 		HTMLContent result = htmlToAnalyze.take();
-		System.out.println("Crawler: next html to analyze is sized: " + result.GetHTML().length());
+		System.out.println("Analyzer took next html to analyzer. Current queue size: " + htmlToAnalyze.size());
 		return result;
 	}
 
-	protected void addHtmlToAnalyze(String htmlBody, String source) throws InterruptedException {
-
-		//TODO delete temp
-		int temp = totalWorkLoad.incrementAndGet();
-		System.out.println("#################Workload updated and is now: " + temp);
-		htmlToAnalyze.put(new HTMLContent(htmlBody, source));
-		System.out.println("addHtmlToAnalyzer added body at length: " + htmlBody.length());
+	protected void addHtmlToAnalyze(String htmlBody, String source, String urlSource) throws InterruptedException {
 
 
+		totalWorkLoad.incrementAndGet();
+		htmlToAnalyze.put(new HTMLContent(htmlBody, source, urlSource));
 	}
 
 	protected int lowerWorkload() {
@@ -585,7 +504,6 @@ public class Crawler implements Runnable {
 
 		synchronized (imageFiles) {
 			imageFiles.updateCounter(numberOfImages, sizeOfImages);
-			System.out.println("Image statistics in updated: " + imageFiles.getSizeOfFiles());
 		}
 	}
 
@@ -593,21 +511,18 @@ public class Crawler implements Runnable {
 
 		synchronized (videoFiles) {
 			videoFiles.updateCounter(numberOfVideos, sizeOfVideos);
-			System.out.println("Video statistics in updated: " + videoFiles.getSizeOfFiles());
 		}
 	}
 
 	protected void updateDocuments(int numberOfDocuments, int sizeOfDocuments) {
 		synchronized (documentFiles) {
 			documentFiles.updateCounter(numberOfDocuments, sizeOfDocuments);
-			System.out.println("Documents statistics in updated: " + documentFiles.getSizeOfFiles());
 		}
 	}
 
 	protected void updatePages(int numberOfPages, int sizeOfPages) {
 		synchronized (pagesFiles) {
 			pagesFiles.updateCounter(numberOfPages, sizeOfPages);
-			System.out.println("Pages statistics in updated: " + pagesFiles.getSizeOfFiles());
 		}
 	}
 
@@ -632,16 +547,10 @@ public class Crawler implements Runnable {
 		return result;
 	}
 
-	//TODO: delete this methos as it's onlt for debbuging
-	public void changeRunningStatus() {
-		isCrawlerRunning = true;
-	}
-
 	public void UpdatePagesVisited(String page) {
 		try {
 			pagesVisited.add(page);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -650,7 +559,6 @@ public class Crawler implements Runnable {
 		try {
 			internalLinks.add(currentLink);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -666,28 +574,20 @@ public class Crawler implements Runnable {
 			if (domain != null) {
 				externalDomains.add(domain);
 			}
-
-
-
-
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
 	}
 
 	public String ExtractDomain(String link) {
-		System.out.println("Crawler: ExtractDomain: got link: " + link);
 		Matcher domainMatcher = DOMAIN_PATTERN.matcher(link);
 		if (domainMatcher.find()) {
-			System.out.println("Crawler: ExtractDomain: found match.");
 			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
 				link = link + "/";
 				ExtractDomain(link);
 			}
 			else {
-				System.out.println("Crawler: ExtractDomain: returning: " + domainMatcher.group(2));
 				return domainMatcher.group(2);
 			}
 		}
@@ -700,7 +600,6 @@ public class Crawler implements Runnable {
 			try {
 				workingDownloaderThreadNumbers.remove(threadNumber);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -712,10 +611,8 @@ public class Crawler implements Runnable {
 			try {
 				workingAnalyzerThreadNumbers.remove(threadNumber);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-
 	}
 }

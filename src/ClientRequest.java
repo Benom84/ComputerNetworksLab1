@@ -4,11 +4,8 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-/**
- * Created by AvivPC on 16-Jan-16.
- */
+
 public class ClientRequest {
 	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1";
 	final static String getRequest = "GET ";
@@ -27,41 +24,15 @@ public class ClientRequest {
 	private String responseStatusCode;
 	private String responseHttpVersion;
 	private String[] parsedRequest;
-	//private static final Pattern urlPattern = Pattern.compile("((^[Hh][Tt][Tt][Pp][Ss]?):\\/\\/)?((www.)?(.*))");
-	//private static final Pattern urlPattern = Pattern.compile(".*?(http:\\/\\/|https:\\/\\/)?(www.)?(.*?)(\\/.*)$");
-
-	public static void main(String[] args) throws IOException {
-
-		String url = "http://m.ynet.co.il/Articles/4762210";
-		ClientRequest testing = new ClientRequest(url, getRequest);
-
-		System.out.println("-------------------------------------------------------------------------");;
-		testing.getLinksFromHtml(testing.getBody(), "Ynet4");
-		//System.out.println("!!!!!!" + testing.getBody());
-		//File bodyOutput = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\body.txt");
-		//FileWriter fw = new FileWriter(bodyOutput);
-		//fw.write(testing.getBody());
-		//fw.close();
-
-		//System.out.println(isLinkValid("/dy2.ynet.co.il/scripts/8765235/api_dynamic.js"));
-
-	}
 
 	public ClientRequest(String url, String requestType) throws IOException {
 
 		parseURL(url);
 		Socket socket = new Socket();
 		try {
-			System.out.println("Connecting socket to: " + host);
 			socket.connect(new InetSocketAddress(host, port));
-			//System.out.println("Creating new OutputStream");
 			DataOutputStream socketOutputStream = new DataOutputStream(socket.getOutputStream());
-			//BufferedOutputStream socketOutputStream = new BufferedOutputStream(socket.getOutputStream());
-			//PrintStream PS = new PrintStream(socket.getOutputStream());
-			//PS.println("HEAD / HTTP/1.0");
 			long start = System.currentTimeMillis();
-
-
 			if (requestType.equals(headRequest)) {
 				socketOutputStream.writeBytes(headRequest + location + " HTTP/1.1" + CRLF);
 				socketOutputStream.writeBytes("Host: " + host + CRLF);
@@ -77,10 +48,7 @@ public class ClientRequest {
 
 			}
 			timeOfRttInMilliseconds = (System.currentTimeMillis() - start);
-
 			InputStreamReader IR = new InputStreamReader(socket.getInputStream());
-
-			System.out.println("ClientRequest: Reading header.");
 			int indexOfBuffer = 0;
 			StringBuilder HeaderResponse = new StringBuilder();
 
@@ -91,15 +59,11 @@ public class ClientRequest {
 				if (HeaderResponse.toString().endsWith(CRLF + CRLF)) {
 					break;
 				}
-				//System.out.println("Index of buffer: " + indexOfBuffer);
+
 				indexOfBuffer = IR.read();
-				//System.out.println("Index of buffer2: " + indexOfBuffer);
 			}
-			System.out.println("Finished reading header");
-			//System.out.println(HeaderResponse.toString());
+
 			parseResponse(HeaderResponse.toString());
-
-
 
 			// Read Body
 			StringBuilder BodyResponse = new StringBuilder();
@@ -107,13 +71,9 @@ public class ClientRequest {
 			int contentLength = 0;
 			if (responseHeaderFields.containsKey("Content-Length")) {
 				contentLength = Integer.parseInt(responseHeaderFields.get("Content-Length"));
-				System.out.println("ContentLength is: " + contentLength);
-
 				body = "";
 				if ((contentLength > 0) && (requestType == getRequest)) {
-					System.out.println("ClientRequest: is get request with content length: " + url);
 					inputBuffer = new BufferedReader(IR);
-					//System.out.println("Got Here!!");
                     int singleChar = 0;
                     try {
 						socket.setSoTimeout(2000);
@@ -121,25 +81,15 @@ public class ClientRequest {
                         while (singleChar != -1 || inputBuffer.ready()) {
                             BodyResponse.append((char)singleChar);
                             singleChar = inputBuffer.read();
-                            //index++;
-                            //System.out.println(line);
                         }
-
-                    }catch(SocketTimeoutException e){
-                        System.out.println("TimeOut occurred while reading response body. Last char is: " + singleChar);
+                    } catch(SocketTimeoutException e){
+                        
                     }
-					//System.out.println("Got Here!!");
 					body = BodyResponse.toString();
-					//System.out.println("Finished reading body");
-					//System.out.println("*********************Body for " + url + " *************************");
-					//System.out.println(body);
-					//System.out.println("*********************End of Body for " + url + " ******************");
 				}else{
 					body="";
 				}
 			} else if(responseHeaderFields.containsKey("Transfer-Encoding")){
-				//TODO: delete this
-				System.out.println("!!!!!!!!!!We have chunk data!");
 				inputBuffer = new BufferedReader(IR);
 				socket.setSoTimeout(2000);
 				body = readChunkedData(inputBuffer);
@@ -152,7 +102,7 @@ public class ClientRequest {
 		}catch (Exception e){
 			System.out.println("Failed to connect to " + url);
 			timeOfRttInMilliseconds = 0;
-			//e.printStackTrace();
+			throw e;
 		} finally {
 
 			if (socket != null)
@@ -177,9 +127,7 @@ public class ClientRequest {
 		responseStatusCode = header[1];
 		responseStatus = header[2];
 		parsedRequest = requestLines;
-
 		responseHeaderFields = getHeaders(parsedRequest);
-
 	}
 
 
@@ -187,7 +135,6 @@ public class ClientRequest {
 		//Group(1) is http:// or https://
 		//Group(2) is host
 		//Group(3) is location
-		//System.out.println("Parse URL in Client request " + this.toString() + " got1: " + url);
 
 		try {
 			Matcher matcher = Crawler.DOMAIN_PATTERN.matcher(url);
@@ -199,14 +146,7 @@ public class ClientRequest {
 				}
 				else {
 					host = matcher.group(2);
-
-					//System.out.println("Parse URL in Client request host: " + host);
-
 					location = matcher.group(3);
-
-					//System.out.println("Parse URL in Client request location: " + location);
-					//System.out.println("Host is: " + host + CRLF + "Location is: " + location);
-
 				}
 			}else{
 				if(!url.endsWith("/")){
@@ -221,13 +161,11 @@ public class ClientRequest {
 
 	public HashMap<String, String> getHeaders(String[] headersInString){
 		HashMap<String, String> result =  new HashMap<>();
-		//String[] splitHeaders = headersInString.split(CRLF);
 		for (String line : headersInString)
 		{
 			String[] splitLine = line.split(": ");
 			if(splitLine.length == 2){
 				result.put(splitLine[0], splitLine[1]);
-				//System.out.println("Key: " + splitLine[0] + ", value: " + splitLine[1]);
 			}
 		}
 		return result;
@@ -251,9 +189,6 @@ public class ClientRequest {
 			if(index == 0){
 				return SB.toString();
 			}else if(index > 0){
-				//System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-				//System.out.println("Number found: " + index);
-				//System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
 				if(SB.length() > 0) {
 					SB.deleteCharAt(SB.length() - 1);
 					SB.deleteCharAt(SB.length() - 1);
@@ -262,8 +197,6 @@ public class ClientRequest {
 			}else{
 				SB.append(line);
 			}
-			//System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-
 		}
 	}
 
@@ -284,78 +217,4 @@ public class ClientRequest {
 
 	public String getBody() { return body; }
 
-	//TODO: delete this method - it's for debbug only
-	public Set<String> getLinksFromHtml(String HTMLPage, String name) throws IOException {
-		if(HTMLPage == null){
-			return null;
-		}
-
-		//System.out.println("Analyzer is parsing: " + HTMLPage);
-		Pattern linkPattern = Pattern.compile("href= *' *(.*?)'|href= *\" *(.*?)\"|src= *' *(.*?)'");
-		Matcher pageMatcher = linkPattern.matcher(HTMLPage);
-		Set<String> links = new HashSet<>();
-		File linksExtacted = new File("C:\\Users\\AvivPC\\Desktop\\ForCrawler\\linksExtracted - " + name + ".txt");
-		FileWriter fw = new FileWriter(linksExtacted);
-		int index = 0;
-		while(pageMatcher.find()){
-			if(pageMatcher.group(1) != null) {
-				links.add(pageMatcher.group(1));
-				System.out.println("Link from analyzer: " + pageMatcher.group(1));
-				if(isLinkValid(pageMatcher.group(1))) {
-					fw.write(pageMatcher.group(1) + System.lineSeparator());
-				}else{
-					fw.write("Excluded: " + pageMatcher.group(1) + System.lineSeparator());
-				}
-				index++;
-			}
-			if(pageMatcher.group(2) != null){
-				links.add(pageMatcher.group(2));
-				System.out.println("Link from analyzer: " + pageMatcher.group(2));
-				if(isLinkValid(pageMatcher.group(2))) {
-					fw.write(pageMatcher.group(2) + System.lineSeparator());
-				}else{
-					fw.write("Excluded: " + pageMatcher.group(2) + System.lineSeparator());
-				}
-				index++;
-			}
-			if(pageMatcher.group(3) != null){
-				links.add(pageMatcher.group(3));
-				System.out.println("Link from analyzer: " + pageMatcher.group(3));
-				if(isLinkValid(pageMatcher.group(3))) {
-					fw.write(pageMatcher.group(3) + System.lineSeparator());
-				}else{
-					fw.write("Excluded: " + pageMatcher.group(3) + System.lineSeparator());
-				}
-				index++;
-			}
-			//System.out.println("Link from analyzer: " + pageMatcher.group(2));
-		}
-		fw.write(System.lineSeparator() + "Number of links extacted: " + index);
-		fw.close();
-		System.out.println("Number of links extacted: " + index);
-		return links;
-	}
-	//TODO: delete this method - it's for debbug only
-	public static boolean isLinkValid(String link){
-		if(link.startsWith("//")){
-			return true;
-		}
-		if(link.startsWith("android-app:")){
-			return false;
-		}
-		if(link.startsWith("javascript:")){
-			return false;
-		}
-		if(link.startsWith("\"+")){
-			return false;
-		}
-		if(link.endsWith(".js")){
-			return false;
-		}
-		if(link.startsWith("#")){
-			return false;
-		}
-		return true;
-	}
 }
-

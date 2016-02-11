@@ -1,13 +1,10 @@
 import java.io.* ;
 import java.net.* ;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.regex.Pattern;
-
-import javax.net.ssl.HostnameVerifier;
 
 final class HttpRequest implements Runnable
 {
@@ -19,6 +16,7 @@ final class HttpRequest implements Runnable
 	private SynchronizedQueue<Socket> socketRequestsQueue;
 	public String fullPathForFile;
 	private Crawler serverCrawler;
+	private String execResults = "/execResult.html";
 
 
 	// Constructor
@@ -74,15 +72,12 @@ final class HttpRequest implements Runnable
 				responseToClient = respond501(htmlRequest);
 			} else if (directRequestToResultPages(htmlRequest)) {
 				responseToClient = respond403(htmlRequest);
-				System.out.println("Failed on referrer");
-				//responesClient = respond403(htmlRequest);
 			} else {
 				if (!htmlRequest.type.equals("TRACE") && !htmlRequest.type.equals("POST")) {
 					boolean isFileLegal = false;
 					try {
 						isFileLegal = checkIfRequestedFileLegal(htmlRequest);
 					} catch (IOException e) {
-						System.out.println("Error checking the file: " + htmlRequest.requestedFile);
 						responseToClient = respond500(htmlRequest);
 					}
 					if (!isFileLegal) {
@@ -96,15 +91,7 @@ final class HttpRequest implements Runnable
 				
 			}
 
-			if(htmlRequest.isChunked){
-				System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
-					responseToClient.getContentLengthLine() + responseToClient.getTransferEncoding());
-			}else{
-				System.out.println(responseToClient.getStatusLine() + responseToClient.getContentType() + 
-					responseToClient.getContentLengthLine());
-			}
 			try {
-				System.out.println("The HTTP response header returning to the browser.");
 				// Send the status line.
 				socketOutputStream.writeBytes(responseToClient.getStatusLine());
 
@@ -150,32 +137,24 @@ final class HttpRequest implements Runnable
 		}
 		
 		if (filename.substring(0, Crawler.RESULTS_PATH_WEB.length()).equalsIgnoreCase(Crawler.RESULTS_PATH_WEB)) {
-			System.out.println("********************************************************");
 			String referrer = null;
 			for (String line : htmlRequest.parsedRequest) {
 				if (line.startsWith("Referer:"))  {
-					System.out.println(line + " EOL!");
 					//Referer: http://xxx.xxx.xxx.xxx/
 					if (line.length() < 16) {
 						return false;
 					}
 					
 					String[] splitReferer = line.substring(16, line.length()).split("/");
-					for (String string : splitReferer) {
-						System.out.println("splitReferer: " + string);
-					}
-					
-					System.out.println("Comparing to: " + defaultPage.getName());
-					if (splitReferer.length < 2 || splitReferer[1].equalsIgnoreCase(defaultPage.getName())) {
+					if (splitReferer.length < 2 || 
+							splitReferer[1].equalsIgnoreCase(defaultPage.getName())
+							|| splitReferer[1].equalsIgnoreCase(Crawler.RESULTS_PATH_WEB.replaceAll("/", ""))
+							|| splitReferer[1].equalsIgnoreCase(execResults.replaceAll("/", ""))){
 						return false;
 					}
 				}
-					
 			}
-			System.out.println("********************************************************");
 			
-			//System.out.println("Referrer is: " + referrer);
-			//TODO
 			if (referrer == null) {
 				return true;
 			}
@@ -207,12 +186,11 @@ final class HttpRequest implements Runnable
 		}else if(htmlRequest.type.equals("POST")){
 			if (htmlRequest.requestedFile.equals("/params_info.html")) {
 				bodyInBytes = makeTable(htmlRequest.parametersInRequestBody);
-			}else if(htmlRequest.requestedFile.equals("/execResult.html")){
-				System.out.println("***Parameters for Crawler : " + htmlRequest.parametersInRequestBody.toString());
+			}else if(htmlRequest.requestedFile.equals(execResults)){
+				System.out.println("Parameters for Crawler : " + htmlRequest.parametersInRequestBody.toString());
 				if(serverCrawler.isBusy()){
-					bodyInBytes = readFileForResponse("/Crawler/CrawlerStillRunning.html");
+					bodyInBytes = prepareDefaultPage("Crawler is busy");
 				}else{
-
 					String crawlerInputCheckResults = checkCrawlerInput(htmlRequest);
 					if (crawlerInputCheckResults == null) {
 						bodyInBytes = activateCrawler(htmlRequest);
@@ -221,7 +199,6 @@ final class HttpRequest implements Runnable
 					} else {
 						bodyInBytes = prepareDefaultPage(crawlerInputCheckResults);
 					}
-					
 				}
 			}
 			else{
@@ -238,11 +215,8 @@ final class HttpRequest implements Runnable
 		
 		if (!htmlRequest.type.equals("POST")) {
 			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
-			System.out.println("Requested file is: " + htmlRequest.requestedFile + " and type is: " +contentType);
 		} else {
-			//contentType = getContentTypeFromFile("");
 			contentType = getContentTypeFromFile(htmlRequest.requestedFile);
-			System.out.println("Requested file is: " + htmlRequest.requestedFile + " and type is: " +contentType);
 		}
 			
 		response200.setContentTypeLine(contentType);
@@ -264,16 +238,11 @@ final class HttpRequest implements Runnable
 		try {
 			ClientRequest clientRequest = new ClientRequest(domainFound, ClientRequest.getRequest);
 			if (clientRequest.responseHeaderFields == null) {
-				return "Error connecting to: " + domain;
-			}
-			System.out.println("checkCrawlerInput: ClientRequest returned: ");
-			
-			for (String key : clientRequest.responseHeaderFields.keySet()) {
-				System.out.println(key + ":\t\t" + clientRequest.responseHeaderFields.get(key));
+				return "Error connecting to: " + domain + "\n";
 			}
 		} catch (Exception e) {
 			System.out.println("checkCrawlerInput: clientRequest generated error.");
-			result = "Error connecting to: " + domain;
+			result = "Error connecting to: " + domain + "\n" + e.toString();
 			e.printStackTrace();
 		}
 
@@ -293,16 +262,12 @@ final class HttpRequest implements Runnable
 		if(htmlRequest.parametersInRequestBody.containsKey("robots.txt")){
 			ignoreRobots = true;
 		}
-		System.out.println("HttpRequest is configuring Crawler.");
 		boolean isConfigureSucceeded = serverCrawler.ConfigureCrawler(domain, ignoreRobots, performPortScan);
-		System.out.println("HttpRequest is configuring Crawler. Results: " + isConfigureSucceeded);
 		if (isConfigureSucceeded) {
 			bodyInBytes = prepareDefaultPage("Crawler started succesfuly");
 			System.out.println("Domain is: " + domain);
 			System.out.println("Perform port scan: " + performPortScan);
 			System.out.println("Ignore robots.txt: " + ignoreRobots);
-			//Thread serverCrawlerThread = new Thread(serverCrawler);
-			//serverCrawlerThread.start();
 		} else {
 			bodyInBytes = prepareDefaultPage("Crawler is already running");
 		}
@@ -313,10 +278,8 @@ final class HttpRequest implements Runnable
 
 	private byte[] readFileForResponse(HtmlRequest htmlRequest) throws IOException {
 
-		System.out.println("Requested File is: " + htmlRequest.requestedFile + " and default page is " + defaultPage.getName());
 		if(htmlRequest.requestedFile.equals("/") || htmlRequest.requestedFile.equals("/" + defaultPage.getName())){
 			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
-			System.out.println("preparing default page");
 			return prepareDefaultPage(null);
 		}else{
 			fullPathForFile = rootDirectory.getCanonicalPath() + htmlRequest.requestedFile;
@@ -369,7 +332,6 @@ final class HttpRequest implements Runnable
 			return "";
 		}
 		
-		System.out.println("PrepareResultPagesSection: path is: " + resultsPath);
 		StringBuilder result = new StringBuilder(); 
 		result.append("<div class=\"connectedDomains\"><ul>");
 		File resultsFolder = new File(resultsPath);
@@ -393,24 +355,6 @@ final class HttpRequest implements Runnable
 		}
 		
 		return result.toString();
-	}
-
-	private byte[] readFileForResponse(String filepath) throws IOException {
-
-		if(filepath.equals("/")){
-			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + defaultPage.getName();
-		}else{
-			fullPathForFile = rootDirectory.getCanonicalPath() + "\\" + filepath;
-		}
-
-		File file = new File (fullPathForFile);
-		byte [] buffer  = new byte [(int)file.length()];
-		FileInputStream fis = new FileInputStream(file);
-		BufferedInputStream bis = new BufferedInputStream(fis);
-		bis.read(buffer,0,buffer.length);
-		bis.close();
-
-		return buffer;
 	}
 
 	private String getContentTypeFromFile(String requestedFile) {
@@ -536,7 +480,6 @@ final class HttpRequest implements Runnable
 			String line = requestBufferedReader.readLine();
 			
 			while (!line.isEmpty()) {
-				System.out.println(line);
 				requestStringBuilder.append(line + NEWLINE);
 				line = requestBufferedReader.readLine();
 			}
