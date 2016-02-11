@@ -39,9 +39,10 @@ public class Downloader implements Runnable {
 			}
 
 			if (!(urlToDownload == null)) {
-				System.out.println("Downloader: Starting download file: " + urlToDownload);
+				System.out.println("Downloader: Starting downloading file: " + urlToDownload);
 				downloadURL();
 				parentCrawler.lowerWorkload();
+				System.out.println("Downloader: Finished downloading file: " + urlToDownload);
 			}
 		}
 	}

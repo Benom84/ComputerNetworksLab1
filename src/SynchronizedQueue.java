@@ -2,7 +2,12 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-
+/***
+ * 
+ * A thread safe queue
+ *
+ * @param <T>
+ */
 public class SynchronizedQueue<T> implements Iterable<T>{
 	
 	private LinkedList<T> queue;

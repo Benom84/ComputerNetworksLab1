@@ -4,7 +4,12 @@ import java.util.Set;
 
 
 
-
+/***
+ * 
+ * A thread safe set
+ *
+ * @param <T>
+ */
 public class SynchronizedSet<T> implements Iterable<T>{
 	
 	private Set<T> set;

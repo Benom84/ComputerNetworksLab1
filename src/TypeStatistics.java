@@ -1,3 +1,9 @@
+/***
+ * 
+ * A class meant to hold statistics about a file type.
+ * Containing the count of files, and the total size of them
+ *
+ */
 public class TypeStatistics {
 	private int numberOfFileFromType;
 	private int sizeOfFilesFromType;
