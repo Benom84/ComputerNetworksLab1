@@ -67,25 +67,23 @@ public class ClientRequest {
 		InputStreamReader IR;
 		try {
 			IR = new InputStreamReader(socket.getInputStream());
-			int indexOfBuffer = 0;
-			
+			int singleChar = 0;
 
 			//Read Header
-			indexOfBuffer = IR.read();
-			while (indexOfBuffer > 0) {
-				headerResponse.append((char)indexOfBuffer);
+			singleChar = IR.read();
+			while (singleChar > 0) {
+				headerResponse.append((char)singleChar);
 				if (headerResponse.toString().endsWith(CRLF + CRLF)) {
 					break;
 				}
 
-				indexOfBuffer = IR.read();
+				singleChar = IR.read();
 			}	
 		} catch (IOException e) {
 			System.out.println("Error reading header from: " + url);
 			throw e;
 		}
 		
-
 		parseResponse(headerResponse.toString());
 
 		// Read Body
@@ -99,14 +97,17 @@ public class ClientRequest {
 				try {
 					inputBuffer = new BufferedReader(IR);
 					int singleChar = 0;
+					int count = 1;
 					socket.setSoTimeout(TIMEOUT);
 					singleChar = inputBuffer.read();
-					while (singleChar != -1 || inputBuffer.ready()) {
+					while ((singleChar != -1 || inputBuffer.ready()) && count < contentLength) {
 						BodyResponse.append((char)singleChar);
 						singleChar = inputBuffer.read();
+						count++;
 					}
 				} catch(Exception e){
 					System.out.println("Socket error while reading body of url:" + url);
+					body = BodyResponse.toString();
 					if (socket != null) {
 						try {
 							socket.close();
@@ -117,6 +118,7 @@ public class ClientRequest {
 					throw e;
 				}
 				body = BodyResponse.toString();
+
 			}else{
 				body="";
 			}

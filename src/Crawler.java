@@ -258,6 +258,7 @@ public class Crawler implements Runnable {
 
 			createResultPage();
 			isCrawlerRunning = false;
+			System.out.println("************* Crawler Finished *****************");
 		}
 	}
 
