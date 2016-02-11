@@ -1,4 +1,3 @@
-import java.io.IOException;
 import java.util.List;
 import java.util.regex.Matcher;
 
@@ -61,9 +60,8 @@ public class Downloader implements Runnable {
 		try {
 			clientRequest = new ClientRequest(urlToDownload, requestType);
 
-		} catch (IOException e) {
+		} catch (Exception e) {
 			System.out.println("Error in client request to: " + urlToDownload);
-			e.printStackTrace();
 			return;
 		}
 

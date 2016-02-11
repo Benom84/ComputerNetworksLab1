@@ -366,7 +366,7 @@ public class Crawler implements Runnable {
 		ClientRequest connection;
 		try {
 			connection = new ClientRequest(targetURL, ClientRequest.getRequest);
-		} catch (IOException e1) {
+		} catch (Exception e1) {
 			System.out.println("Error connecting to: " + targetURL + " to get robots file.");
 			e1.printStackTrace();
 			return null;
@@ -583,7 +583,7 @@ public class Crawler implements Runnable {
 	public String ExtractDomain(String link) {
 		Matcher domainMatcher = DOMAIN_PATTERN.matcher(link);
 		if (domainMatcher.find()) {
-			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":")) {
+			if (domainMatcher.group(1) == null && domainMatcher.group(2).endsWith(":") && !link.endsWith("/")) {
 				link = link + "/";
 				ExtractDomain(link);
 			}

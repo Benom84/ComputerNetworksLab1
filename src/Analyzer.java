@@ -160,6 +160,10 @@ public class Analyzer implements Runnable {
 		if(link.contains("twitter") ||link.contains("Twitter")){
 			return false;
 		}
+		
+		if (link.contains("mailto:")) {
+			return false;
+		}
 		return true;
 	}
 
