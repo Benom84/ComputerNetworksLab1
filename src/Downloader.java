@@ -42,7 +42,6 @@ public class Downloader implements Runnable {
 				System.out.println("Downloader: Starting downloading file: " + urlToDownload);
 				downloadURL();
 				parentCrawler.lowerWorkload();
-				System.out.println("Downloader: Finished downloading file: " + urlToDownload);
 			}
 		}
 	}
@@ -119,6 +118,8 @@ public class Downloader implements Runnable {
 				e.printStackTrace();
 			}
 		}
+		
+		System.out.println("Downloader: Finished downloading file: " + urlToDownload);
 		urlToDownload = "";
 	}
 
